@@ -31,11 +31,66 @@ from play_time import Time
 from player import Player
 
 
-class MainWindow(object):
-    def dispatch(self):
-        pass
 
-class Main(QApplication): 
+
+
+class MainWindow(object):
+    def dispatch(self, args):
+        if isinstance(args, basestring):
+            args = args.split()
+        
+        method_name = 'cmd_' + args[0].replace('-', '_')
+        if hasattr(self, method_name):
+            getattr(self, method_name)(*args[1:])
+
+
+    def cmd_exit(self):
+        # TODO: make this better
+        exit()
+
+    def cmd_open(self, url):
+        self.player.open(parts[1])
+        
+    def cmd_opendlg(self):
+        filename = QFileDialog.getOpenFileName(self.window, 'Open file', '/home/kosqx')
+        print filename
+        if filename:
+            self.player.open(str(filename))
+    
+    def cmd_close(self):
+        self.player.close()
+    
+    
+    def cmd_goto(self, val):
+        self.player.position = Time.parse(val)
+        
+    def cmd_speed(self, val):
+        self.player.speed = float(val)
+        
+    def cmd_pos(self, val):
+        self.player.position_fraction = float(val)
+        
+    def cmd_volume(self, val):
+        self.player.volume = float(val)
+        
+    def cmd_snap(self):
+        self.player.snapshot()
+
+
+    def cmd_play(self):
+        self.player.play()
+   
+    def cmd_pause(self):
+        self.player.pause()
+        
+    def cmd_stop(self):
+        self.player.stop()
+        
+    def cmd_toggle(self):
+        self.player.toggle()
+    
+
+class Main(QApplication, MainWindow):
     def __init__(self): 
         QApplication.__init__(self, sys.argv)
         
@@ -67,30 +122,17 @@ class Main(QApplication):
         
         self.player = Player.create('gstreamer', self, self.movie_window.winId())
 
+        QTimer.singleShot(0, self.autoopen)
+        
+    def autoopen(self):
+        if len(sys.argv) > 1:
+            self.player.open(os.path.abspath(sys.argv[1]))
         
     def run(self):
         text = str(self.entry.text())
         self.entry.setText('')
-        parts = text.split(' ', 1)
-        if parts[0] == "open":
-            self.player.open(parts[1])
-        elif parts[0] == "opendlg":
-            filename = QFileDialog.getOpenFileName(self.window, 'Open file', '/home/kosqx')
-            print filename
-            if filename:
-                self.player.open(str(filename))
-        elif parts[0] == "toggle":
-            self.player.toggle()
-        elif parts[0] == "goto":
-            self.player.position = Time.parse(parts[1])
-        elif parts[0] == "speed":
-            self.player.speed = float(parts[1])
-        elif parts[0] == "pos":
-            self.player.position_fraction = float(parts[1])
-        elif parts[0] == "volume":
-            self.player.volume = float(parts[1])
-        elif parts[0] == "snap":
-            self.player.snapshot()
+        
+        self.dispatch(text)
 
 
 main = Main() 

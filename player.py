@@ -246,7 +246,8 @@ class GStreamerPlayer(Player):
 
     def _cb_message(self, bus, message):
         t = message.type
-        print t
+        if t != gst.MESSAGE_STATE_CHANGED:
+            print t
         if t == gst.MESSAGE_EOS:
             self._player.set_state(gst.STATE_NULL)
         elif t == gst.MESSAGE_ERROR:
