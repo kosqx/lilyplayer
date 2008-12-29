@@ -29,63 +29,80 @@ from PyQt4.QtGui import *
 
 from play_time import Time
 from player import Player
-
+from arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
 
 
 
 
 class MainWindow(object):
+    arguments_table = []
+    
     def dispatch(self, args):
-        if isinstance(args, basestring):
-            args = args.split()
+        #if isinstance(args, basestring):
+            #args = args.split()
         
-        method_name = 'cmd_' + args[0].replace('-', '_')
-        if hasattr(self, method_name):
-            getattr(self, method_name)(*args[1:])
+        #print self.arguments_table
+        parsed = parse_arguments(self.arguments_table, args)
+        parsed[0](*([self] + parsed[1:]))
+        
+        #method_name = 'cmd_' + args[0].replace('-', '_')
+        #if hasattr(self, method_name):
+            #getattr(self, method_name)(*args[1:])
 
-
+    @args(arguments_table, 'exit')
     def cmd_exit(self):
         # TODO: make this better
         exit()
 
+    @args(arguments_table, 'open', StrArg())
     def cmd_open(self, url):
         self.player.open(parts[1])
         
+    @args(arguments_table, 'opendlg')
     def cmd_opendlg(self):
         filename = QFileDialog.getOpenFileName(self.window, 'Open file', '/home/kosqx')
         print filename
         if filename:
             self.player.open(str(filename))
     
+    @args(arguments_table, 'close')
     def cmd_close(self):
         self.player.close()
     
-    
-    def cmd_goto(self, val):
-        self.player.position = Time.parse(val)
-        
+
+    @args(arguments_table, 'speed', FloatArg(0.25, 4.0))
     def cmd_speed(self, val):
         self.player.speed = float(val)
         
-    def cmd_pos(self, val):
+    @args(arguments_table, 'goto', FloatArg(0.0, 1.0))
+    def cmd_goto_pos(self, val):
         self.player.position_fraction = float(val)
-        
+    
+    @args(arguments_table, 'goto', TimeArg())
+    def cmd_goto_time(self, val):
+        self.player.position = Time.parse(val)
+    
+    @args(arguments_table, 'volume', FloatArg(0.0, 1.0))
     def cmd_volume(self, val):
-        self.player.volume = float(val)
-        
+        self.player.volume = val
+    
+    @args(arguments_table, 'snap')
     def cmd_snap(self):
         self.player.snapshot()
 
-
+    @args(arguments_table, 'play')
     def cmd_play(self):
         self.player.play()
-   
+    
+    @args(arguments_table, 'pause')
     def cmd_pause(self):
         self.player.pause()
-        
+    
+    @args(arguments_table, 'stop')
     def cmd_stop(self):
         self.player.stop()
         
+    @args(arguments_table, 'toggle')
     def cmd_toggle(self):
         self.player.toggle()
     
