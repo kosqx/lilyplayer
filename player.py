@@ -19,6 +19,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
+import time
 
 import pygst
 pygst.require("0.10")
@@ -30,6 +31,7 @@ from PyQt4.QtCore import QThread
 from utils import clamp
 from play_time import Time
 
+import threading
 
 
 
@@ -49,12 +51,8 @@ class Player(object):
         self._do_close()
         
     def snapshot(self):
-        format, data = self._do_snapshot()
-        # TODO: current user home directory OR search in config
-        filename = '/home/kosqx/lily_%s.png' % (time.strftime('%Y-%m-%d_%H:%M:%S'), format)
-        fo = open(filename, 'wb')
-        fo.write(data)
-        fo.close()
+        return self._do_snapshot()
+
         
     def play(self):
         self._do_set_state("play")
@@ -139,7 +137,9 @@ class GStreamerPlayer(Player):
             bus.add_signal_watch()
             bus.enable_sync_message_emission() 
             bus.connect('message', self.on_message) 
-            bus.connect('sync-message::element', self.on_sync_message) 
+            bus.connect('sync-message::element', self.on_sync_message)
+            
+            self.player._bus = bus
             
         def on_message(self, bus, message): 
             self.player._cb_message(bus, message)
@@ -194,14 +194,16 @@ class GStreamerPlayer(Player):
         self._player = gst.element_factory_make("playbin", "player")
         self._xid = xid
         self._thread = GStreamerPlayer.SignalThread(window, self)
-        self._thread.start() 
-        
-        #self._init_snapshot()
+        self._thread.start()
+
         self._snapshot_conventer = GStreamerPlayer.SnapshotPipeline()
         
         print dir(self._player)
         for i in self._player:
             print i 
+        
+        
+        self._was_eos = False
         
         # works
         #print gst.xml_write(self._player)
@@ -246,9 +248,15 @@ class GStreamerPlayer(Player):
 
     def _cb_message(self, bus, message):
         t = message.type
+        if t == gst.MESSAGE_ASYNC_DONE:
+            pass
+        
         if t != gst.MESSAGE_STATE_CHANGED:
             print t
         if t == gst.MESSAGE_EOS:
+            self._was_eos = True
+            print self._player.get_state()
+            print '\n'.join(['#' * 80 + ' EOS'] * 6)
             self._player.set_state(gst.STATE_NULL)
         elif t == gst.MESSAGE_ERROR:
             self._player.set_state(gst.STATE_NULL)
@@ -262,20 +270,40 @@ class GStreamerPlayer(Player):
                 print '\t%s = %s' % (key, taglist[key])
 
     def _cb_sync_message(self, bus, message):
+        print message.type, message
         if message.structure is None:
             return
         message_name = message.structure.get_name()
         if message_name == 'prepare-xwindow-id':
             imagesink = message.src
-            imagesink.set_property('force-aspect-ratio', False)
+            imagesink.set_property('force-aspect-ratio', True)
             imagesink.set_xwindow_id(self._xid)
 
-
-    def _seek(self, pos):
-        self._player.seek(self._speed, gst.FORMAT_TIME,
+    def _seek(self, pos, wait=True):
+        #self._player.seek(self._speed, gst.FORMAT_TIME,
+            #gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE,
+            #gst.SEEK_TYPE_SET, pos,
+            #gst.SEEK_TYPE_NONE, 0
+        #)
+            
+        event = gst.event_new_seek(self._speed, gst.FORMAT_TIME,
             gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE,
             gst.SEEK_TYPE_SET, pos,
-            gst.SEEK_TYPE_NONE, 0)
+            gst.SEEK_TYPE_NONE, 0
+        )
+
+        #event = gst.event_new_seek(self._speed, gst.FORMAT_TIME,
+            #gst.SEEK_FLAG_FLUSH,
+            #gst.SEEK_TYPE_SET, pos,
+            #gst.SEEK_TYPE_NONE, 0
+        #)
+
+        res = self._player.send_event(event)
+        if not res:
+            raise InternalException
+        
+        if wait:
+            msg = self._bus.poll(gst.MESSAGE_ASYNC_DONE, gst.SECOND * 3)
 
     def _pos(self):
         if self._time_format is None:
@@ -296,8 +324,6 @@ class GStreamerPlayer(Player):
             return 0
 
     def _do_open(self, url, start=True):
-        #if not url.startswith('file://'):
-            #url = 'file://' + url
         if url.startswith('/'):
             url = 'file://' + url
         self._player.set_property('uri', url)
@@ -333,7 +359,7 @@ class GStreamerPlayer(Player):
                 print '  !!  '
                 print 'str ', str(next)
                 print 'name', next.props.name
-        except exceptions.StopIteration:
+        except StopIteration:
             pass
         
     def _do_close(self):
@@ -346,18 +372,23 @@ class GStreamerPlayer(Player):
             gst.STATE_READY:   'stop',
             gst.STATE_NULL:    'close',
         }
-        
-        return cases.get(self._player.get_state()[1], 'close')
+        if self._was_eos:
+            return 'finish'
+        else:
+            return cases.get(self._player.get_state()[1], 'close')
     
     def _do_set_state(self, state):
         cases = {
-            'play':  gst.STATE_PLAYING,
-            'pause': gst.STATE_PAUSED,
-            'stop':  gst.STATE_READY,
-            'close': gst.STATE_NULL,
+            'play':   gst.STATE_PLAYING,
+            'pause':  gst.STATE_PAUSED,
+            'stop':   gst.STATE_READY,
+            'close':  gst.STATE_NULL,
+            'finish': gst.STATE_READY,
         }
         if state in cases:
             self._player.set_state(cases[state])
+        
+        self._was_eos = False
 
     def _do_get_speed(self):
         return self._speed

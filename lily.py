@@ -20,7 +20,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
 
-import sys, os, os.path
+import sys
+import os
+import os.path
+import time
 
 
 from PyQt4.QtCore import *
@@ -31,23 +34,16 @@ from play_time import Time
 from player import Player
 from arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
 
-
+import compose_thumbs
 
 
 class MainWindow(object):
     arguments_table = []
     
     def dispatch(self, args):
-        #if isinstance(args, basestring):
-            #args = args.split()
-        
-        #print self.arguments_table
         parsed = parse_arguments(self.arguments_table, args)
         parsed[0](*([self] + parsed[1:]))
-        
-        #method_name = 'cmd_' + args[0].replace('-', '_')
-        #if hasattr(self, method_name):
-            #getattr(self, method_name)(*args[1:])
+
 
     @args(arguments_table, 'exit')
     def cmd_exit(self):
@@ -56,7 +52,7 @@ class MainWindow(object):
 
     @args(arguments_table, 'open', StrArg())
     def cmd_open(self, url):
-        self.player.open(parts[1])
+        self.player.open(url)
         
     @args(arguments_table, 'opendlg')
     def cmd_opendlg(self):
@@ -72,11 +68,11 @@ class MainWindow(object):
 
     @args(arguments_table, 'speed', FloatArg(0.25, 4.0))
     def cmd_speed(self, val):
-        self.player.speed = float(val)
+        self.player.speed = val
         
     @args(arguments_table, 'goto', FloatArg(0.0, 1.0))
     def cmd_goto_pos(self, val):
-        self.player.position_fraction = float(val)
+        self.player.position_fraction = val
     
     @args(arguments_table, 'goto', TimeArg())
     def cmd_goto_time(self, val):
@@ -88,7 +84,42 @@ class MainWindow(object):
     
     @args(arguments_table, 'snap')
     def cmd_snap(self):
-        self.player.snapshot()
+        format, data = self.player.snapshot()
+        filename = os.path.expanduser('~/lily_%s.%s' % (time.strftime('%Y-%m-%d_%H:%M:%S'), format))
+        fo = open(filename, 'wb')
+        fo.write(data)
+        fo.close()
+
+    @args(arguments_table, 'thumb', IntArg(1, 1000))
+    def cmd_snap(self, count):
+        saved_pos = self.player.position_fraction
+        saved_state = self.player.state
+        self.player.pause()
+        
+        result = []
+        
+        for i in xrange(1, count + 1):
+            last_pos = self.player.position_fraction
+            seek_pos = i * (1.0 / (count + 1))
+            self.player.position_fraction = seek_pos
+
+            format, data = self.player.snapshot()
+            label = str(self.player.position)
+            result.append((data, label))
+
+            #filename = os.path.expanduser('~/thumb_%.4d.%s' % (i, format))
+            #fo = open(filename, 'wb')
+            #fo.write(data)
+            #fo.close()
+
+        compose_thumbs.compose(
+                result, 
+                outfile=os.path.join(os.path.expanduser('~'), 'thumb.png'),
+                size=200, cols=4, border=5,
+        )
+        
+        self.player.position_fraction = saved_pos
+        self.player.state = saved_state
 
     @args(arguments_table, 'play')
     def cmd_play(self):
@@ -105,6 +136,10 @@ class MainWindow(object):
     @args(arguments_table, 'toggle')
     def cmd_toggle(self):
         self.player.toggle()
+        
+    @args(arguments_table, 'fullscreen')
+    def cmd_fullscreen(self):
+        self.do_set_fullscreen(None)
     
 
 class Main(QApplication, MainWindow):
@@ -116,6 +151,7 @@ class Main(QApplication, MainWindow):
         self.window.setLayout(QVBoxLayout())
         self.window.layout().setMargin(0)
         self.window.layout().setSpacing(0)
+        
         
         upper = QWidget(self.window)
         upper.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
@@ -151,6 +187,14 @@ class Main(QApplication, MainWindow):
         
         self.dispatch(text)
 
+    def do_set_fullscreen(self, value):
+        if value is None:
+            value = not self.window.isFullScreen()
+            
+        if value:
+            self.window.showFullScreen()
+        else:
+            self.window.showNormal()
 
 main = Main() 
 main.exec_()
