@@ -24,6 +24,7 @@ import sys
 import os
 import os.path
 import time
+import random
 
 
 from PyQt4.QtCore import *
@@ -36,6 +37,49 @@ from arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, par
 
 import compose_thumbs
 
+class PlaylistItem(object):
+    def __init__(self, filename, name=None):
+        self.filename = os.path.abspath(filename)
+        if name:
+            self.name = name
+        else:
+            self.name = os.path.split(filename)[-1]
+
+class Playlist(object):
+    def __init__(self, items):
+        self.items = [PlaylistItem(i) for i in items]
+        self.current = None
+        self.mode = 'default'
+    
+    def get(self):
+        if self.current is not None and 0 <= self.current < len(self.items):
+            return self.items[self.current]
+        else:
+            return None
+
+    def goto(self, index):
+        self.current = index
+        return self.get()
+
+    def next(self):
+        if self.mode == 'repeat-one':
+            if self.current is None:
+                self.current = 0
+        elif self.mode == 'repeat':
+            if self.current is None:
+                self.current = 0
+            elif self.current >= (len(self.items) - 1):
+                self.current = 0
+            else:
+                self.current += 1
+        elif self.mode == 'shuffle':
+            self.current = random.randint(len(self.items))
+        else:
+            if self.current is None:
+                self.current = 0
+            else:
+                self.current += 1
+        return self.get()
 
 class MainWindow(object):
     arguments_table = []
@@ -43,6 +87,22 @@ class MainWindow(object):
     def dispatch(self, args):
         parsed = parse_arguments(self.arguments_table, args)
         parsed[0](*([self] + parsed[1:]))
+
+
+    def on_timer(self):
+        if self.player.state == 'finish':
+            next = self.playlist.next()
+            self.open_item(next)
+
+    def open_item(self, item):
+        if item:
+            self.player.stop()
+            self.window.setWindowTitle("%s Lily Player:"  % item.name)
+            self.player.open(item.filename)
+            self.player.play()
+        else:
+            self.window.setWindowTitle("Lily Player")
+            self.player.stop()
 
 
     @args(arguments_table, 'exit')
@@ -81,6 +141,10 @@ class MainWindow(object):
     @args(arguments_table, 'volume', FloatArg(0.0, 1.0))
     def cmd_volume(self, val):
         self.player.volume = val
+        
+    @args(arguments_table, 'mute')
+    def cmd_mute(self):
+        self.player.mute = None
     
     @args(arguments_table, 'snap')
     def cmd_snap(self):
@@ -140,7 +204,20 @@ class MainWindow(object):
     @args(arguments_table, 'fullscreen')
     def cmd_fullscreen(self):
         self.do_set_fullscreen(None)
-    
+        
+        
+    @args(arguments_table, 'playlist-next')
+    def cmd_playlist_next(self):
+        print 'playlist next'
+        self.open_item(self.playlist.next())
+        
+    @args(arguments_table, 'playlist-mode', EnumArg(['repeat-one', 'repeat', 'shuffle', 'default']))
+    def cmd_playlist_mode(self, mode):
+        self.playlist.mode = mode
+        
+    @args(arguments_table, 'playlist-goto', IntArg(0))
+    def cmd_playlist_goto(self, index):
+        self.open_item(self.playlist.goto(index))
 
 class Main(QApplication, MainWindow):
     def __init__(self): 
@@ -151,21 +228,10 @@ class Main(QApplication, MainWindow):
         self.window.setLayout(QVBoxLayout())
         self.window.layout().setMargin(0)
         self.window.layout().setSpacing(0)
-        
-        
-        upper = QWidget(self.window)
-        upper.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
-        self.window.layout().addWidget(upper)
-        upper.setLayout(QHBoxLayout())
-        upper.layout().setMargin(0)
-        
-        self.entry = QLineEdit(upper)
-        upper.layout().addWidget(self.entry)
+
+        self.entry = QLineEdit(self.window)
+        self.window.layout().addWidget(self.entry)
         self.connect(self.entry, SIGNAL("returnPressed()"), self.run)
-        
-        #self.button = QPushButton("Run", upper)
-        #upper.layout().addWidget(self.button)
-        #self.connect(self.button, SIGNAL("clicked()"), self.run)
         
         self.movie_window = QWidget(self.window)
         self.window.layout().addWidget(self.movie_window)
@@ -177,14 +243,21 @@ class Main(QApplication, MainWindow):
 
         QTimer.singleShot(0, self.autoopen)
         
+        
     def autoopen(self):
-        if len(sys.argv) > 1:
-            self.player.open(os.path.abspath(sys.argv[1]))
+        self.playlist = Playlist(sys.argv[1:])
+        
+        self.open_item(self.playlist.next())
+        
+        self.ctimer = QTimer()
+        self.ctimer.start(1000)
+        QObject.connect(self.ctimer, SIGNAL("timeout()"), self.on_timer)
+        print 'autoopen'
         
     def run(self):
         text = str(self.entry.text())
         self.entry.setText('')
-        
+       
         self.dispatch(text)
 
     def do_set_fullscreen(self, value):

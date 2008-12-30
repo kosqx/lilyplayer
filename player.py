@@ -34,7 +34,6 @@ from play_time import Time
 import threading
 
 
-
 class Player(object):
     @staticmethod
     def create(backend, window, xid):
@@ -42,6 +41,7 @@ class Player(object):
             return GStreamerPlayer(window, xid)
     
     def __init__(self, window, xid):
+        self._mute_volume = None
         pass
     
     def open(self, filename):
@@ -115,6 +115,22 @@ class Player(object):
 
     def set_volume(self, volume):
         self._do_set_volume(volume)
+        self._mute_volume = None
+        
+    def get_mute(self):
+        return self._mute_volume is not None
+
+    def set_mute(self, value):
+        if value is None:
+            value = self._mute_volume is None
+        
+        if value:
+            self._mute_volume = self._do_get_volume()
+            self._do_set_volume(0.0)
+        else:
+            if self._mute_volume is not None:
+                self._do_set_volume(self._mute_volume)
+            self._mute_volume = None
 
     # properties
     state             = property(get_state,             set_state)
@@ -123,6 +139,9 @@ class Player(object):
     duration          = property(get_duration)
     speed             = property(get_speed,             set_speed)
     volume            = property(get_volume,            set_volume)
+    mute              = property(get_mute,              set_mute)
+
+
 
 class GStreamerPlayer(Player):
 
@@ -184,8 +203,9 @@ class GStreamerPlayer(Player):
             return self.buffer.copy()
 
     def __init__(self, window, xid = None):
+        super(GStreamerPlayer, self).__init__(window, xid)
         # debug_threshold in [0, 1, 2, 3, 4, 5]
-        print 'old debug level', gst.debug_get_default_threshold()
+        #print 'old debug level', gst.debug_get_default_threshold()
         gst.debug_set_default_threshold(1)
         
         self._speed = 1.0
@@ -198,9 +218,9 @@ class GStreamerPlayer(Player):
 
         self._snapshot_conventer = GStreamerPlayer.SnapshotPipeline()
         
-        print dir(self._player)
-        for i in self._player:
-            print i 
+        #print dir(self._player)
+        #for i in self._player:
+            #print i 
         
         
         self._was_eos = False
@@ -209,25 +229,25 @@ class GStreamerPlayer(Player):
         #print gst.xml_write(self._player)
 
     def _cb_snapshot(self, element, buffer, pad):
-        print '_cb_snapshot', len(buffer)
         self._snapshot_buffer = buffer
         return True
 
     
     def _init_snapshot(self):
-        format = 'png'
         
         if hasattr(self, '_snapshot_pipeline') and self._snapshot_pipeline is not None:
             return
+
+        pipeline = ' ! '.join([
+            'fakesrc name=src',
+            'queue name=queue',
+            'videoscale',
+            'ffmpegcolorspace',
+            'video/x-raw-rgb', # 'video/x-raw-rgb,width=160'
+            'pngenc',
+            'fakesink name=sink signal-handoffs=true'
+        ])
         
-        #self.converter=gst.parse_launch('fakesrc name=src ! queue name=queue ! videoscale ! ffmpegcolorspace ! video/x-raw-rgb,width=160 ! pngenc ! fakesink name=sink signal-handoffs=true')
-        if format.lower() in ['png']:
-            pipeline = 'fakesrc name=src ! queue name=queue ! videoscale ! ffmpegcolorspace ! video/x-raw-rgb ! pngenc ! fakesink name=sink signal-handoffs=true'
-        elif format.lower() in ['jpg', 'jpeg']:
-            pipeline = 'fakesrc name=src ! queue name=queue ! videoscale ! ffmpegcolorspace ! video/x-raw-rgb ! jpegenc ! fakesink name=sink signal-handoffs=true'
-        else:
-            raise 'unknown format %r' % format
-        print pipeline
         self._snapshot_pipeline = gst.parse_launch(pipeline)
         
         self._snapshot_queue = self._snapshot_pipeline.get_by_name('queue')
@@ -248,26 +268,24 @@ class GStreamerPlayer(Player):
 
     def _cb_message(self, bus, message):
         t = message.type
+        
         if t == gst.MESSAGE_ASYNC_DONE:
             pass
-        
-        if t != gst.MESSAGE_STATE_CHANGED:
-            print t
-        if t == gst.MESSAGE_EOS:
+        elif t == gst.MESSAGE_EOS:
             self._was_eos = True
-            print self._player.get_state()
-            print '\n'.join(['#' * 80 + ' EOS'] * 6)
             self._player.set_state(gst.STATE_NULL)
         elif t == gst.MESSAGE_ERROR:
+            self._was_eos = True
             self._player.set_state(gst.STATE_NULL)
         elif t == gst.MESSAGE_TAG:
-            print 'MESSAGE_TAG', '-' * 100
-            print message
-            print dir(message)
-            taglist = message.parse_tag()
-            print 'on_tag:'
-            for key in taglist.keys():
-                print '\t%s = %s' % (key, taglist[key])
+            pass
+            #print 'MESSAGE_TAG', '-' * 100
+            #print message
+            #print dir(message)
+            #taglist = message.parse_tag()
+            #print 'on_tag:'
+            #for key in taglist.keys():
+                #print '\t%s = %s' % (key, taglist[key])
 
     def _cb_sync_message(self, bus, message):
         print message.type, message
@@ -331,36 +349,31 @@ class GStreamerPlayer(Player):
             self._player.set_state(gst.STATE_PLAYING)
         self._time_format = gst.Format(gst.FORMAT_TIME)
         
-        print '  $$  '
-        print 'audio', self._player.props.current_audio
-        print 'text ', self._player.props.current_text 
-        print 'video', self._player.props.current_video
+        #print 'audio', self._player.props.current_audio
+        #print 'text ', self._player.props.current_text 
+        #print 'video', self._player.props.current_video
         
-        for i in self._player.props.stream_info_value_array:
-            print '  --  '
-            print 'nick   ', i.props.type.value_nick
-            print 'codec  ', i.props.codec
-            print 'decoder', i.props.language_code
-            print 'lang   ', i.props.language_code
-            print 'mute   ', i.props.mute
-            print 'caps   ', i.props.caps.to_string()
+        #for i in self._player.props.stream_info_value_array:
+            #print 'nick   ', i.props.type.value_nick
+            #print 'codec  ', i.props.codec
+            #print 'decoder', i.props.language_code
+            #print 'lang   ', i.props.language_code
+            #print 'mute   ', i.props.mute
+            #print 'caps   ', i.props.caps.to_string()
             
-        print '  ##  '
-        caps = self._player.props.frame.get_caps()[0]
-        for name in caps.keys():
-            print name, caps[name]
+        #caps = self._player.props.frame.get_caps()[0]
+        #for name in caps.keys():
+            #print name, caps[name]
         
         
-        print '  @@  '
-        el = self._player.elements()
-        try:
-            while True:
-                next = el.next()
-                print '  !!  '
-                print 'str ', str(next)
-                print 'name', next.props.name
-        except StopIteration:
-            pass
+        #el = self._player.elements()
+        #try:
+            #while True:
+                #next = el.next()
+                #print 'str ', str(next)
+                #print 'name', next.props.name
+        #except StopIteration:
+            #pass
         
     def _do_close(self):
         self._player.set_state(gst.STATE_NULL)

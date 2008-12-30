@@ -20,7 +20,6 @@ def compose(images, outfile, cols=2, size=150, border=10, header=None, ):
     font = ImageFont.truetype("/usr/share/fonts/truetype/msttcorefonts/Verdana_Bold.ttf", 12, encoding="unic")
 
     for index, (data, label) in enumerate(images):
-        print label
         x = index % cols
         y = index / cols
         
@@ -60,7 +59,6 @@ def compose(images, outfile, cols=2, size=150, border=10, header=None, ):
                 logo_text = "Lily Player"
                 logo_font =  ImageFont.truetype("/usr/share/fonts/truetype/msttcorefonts/Verdana_Bold.ttf", 30, encoding="unic")
                 logo_size = draw.textsize(logo_text, font=logo_font)
-                print ((size_w + border) * cols - logo_size[0], border), logo_size, (size_w, border, cols, logo_size[0])
                 draw.text(((size_w + border) * cols - logo_size[0], border), logo_text, fill=ImageColor.getrgb('#ffffff'), font=logo_font)
                                 
                 header_color = ImageColor.getrgb('#000000')
