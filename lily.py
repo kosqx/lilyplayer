@@ -34,52 +34,18 @@ from PyQt4.QtGui import *
 from play_time import Time
 from player import Player
 from arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
+from playlist import Playlist, PlaylistItem
 
 import compose_thumbs
 
-class PlaylistItem(object):
-    def __init__(self, filename, name=None):
-        self.filename = os.path.abspath(filename)
-        if name:
-            self.name = name
-        else:
-            self.name = os.path.split(filename)[-1]
-
-class Playlist(object):
-    def __init__(self, items):
-        self.items = [PlaylistItem(i) for i in items]
-        self.current = None
-        self.mode = 'default'
+class Struct(object):
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
     
-    def get(self):
-        if self.current is not None and 0 <= self.current < len(self.items):
-            return self.items[self.current]
-        else:
-            return None
+    def __repr__(self):
+        args = ['%s=%r' % (i, self.__dict__[i]) for i in self.__dict__ if not i.startswith('_')]
+        return 'Struct(' + ', '.join(args) + ')'
 
-    def goto(self, index):
-        self.current = index
-        return self.get()
-
-    def next(self):
-        if self.mode == 'repeat-one':
-            if self.current is None:
-                self.current = 0
-        elif self.mode == 'repeat':
-            if self.current is None:
-                self.current = 0
-            elif self.current >= (len(self.items) - 1):
-                self.current = 0
-            else:
-                self.current += 1
-        elif self.mode == 'shuffle':
-            self.current = random.randint(len(self.items))
-        else:
-            if self.current is None:
-                self.current = 0
-            else:
-                self.current += 1
-        return self.get()
 
 class MainWindow(object):
     arguments_table = []
@@ -93,6 +59,8 @@ class MainWindow(object):
         if self.player.state == 'finish':
             next = self.playlist.next()
             self.open_item(next)
+        #self.slider.setValue(int(self.player.position_fraction * 1000))
+        self.controls._redraw(self)
 
     def open_item(self, item):
         if item:
@@ -104,6 +72,14 @@ class MainWindow(object):
             self.window.setWindowTitle("Lily Player")
             self.player.stop()
 
+    def get_fullscreen(self):
+        return self.do_get_fullscreen()
+    
+    def set_fullscreen(self, value=None):
+        if value is None:
+            value = not self.do_get_fullscreen()
+        
+        self.do_set_fullscreen(value)
 
     @args(arguments_table, 'exit')
     def cmd_exit(self):
@@ -219,6 +195,191 @@ class MainWindow(object):
     def cmd_playlist_goto(self, index):
         self.open_item(self.playlist.goto(index))
 
+class PlayControls(QWidget):
+    def __init__(self, parent):
+        QWidget.__init__(self, parent)
+        self.main = None
+        self.actions = {}
+        
+        pos_data = """
+        0    0   7
+        1    7   7
+        2   14   7
+        3   21   7
+        4   28   7
+        5   35   7
+        6   42   7
+        7   49   7
+        8   56   7
+        9   63   7
+        :   70   7
+        (   77   7
+        )   84   7
+        _   91   7
+        p   98  16    play sign
+        P  114  16    pause sign
+        m  130  16    sound on
+        M  146  16    sound off
+        f  162  16    normal screen
+        F  178  16    full screen
+        {  194   5
+        #  199   5
+        }  204   5
+        [  209   5
+        =  214   5
+        ]  219   5
+        """
+        
+        self._pos = {}
+        for line in pos_data.splitlines():
+            parts = line.split()
+            if parts:
+                self._pos[parts[0]] = (int(parts[1]), int(parts[2]))
+        if '_' in self._pos:
+            self._pos[' '] = tuple(self._pos['_'])
+            
+        assert self._pos['['][1] == self._pos[']'][1]
+        assert self._pos['['][1] == self._pos['{'][1]
+        assert self._pos[']'][1] == self._pos['}'][1]
+        
+        self.setSizePolicy(QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed))
+        self._pixmap = QPixmap('/home/kosqx/newc.png')
+
+        
+    def _makeSpec(self, time, duration, position, volume, play='p', mute='m', full='f'):
+        spec = []
+        self.actions = {}
+        
+        left = 0
+        right = self.width()
+        
+        def from_left(spec, left, c, name=None):
+            x, l = self._pos[c]
+            spec.append((x, l, left, l))
+            if name:
+                self.actions[name] = (left, left + l)
+            return left + l
+        
+        def from_right(spec, right, c, name=None):
+            x, l = self._pos[c]
+            spec.append((x, l, right - l, l))
+            if name:
+                self.actions[name] = (right - l, right)
+            return right - l
+        
+        def bar(spec, left, right, value, name=None):
+            ch_l = ['{', '['][int(value == 0.0)]
+            ch_r = [']', '}'][int(value == 1.0)]
+            ch_size = self._pos['['][1]
+            
+            left = from_left(spec, left, ch_l)
+            right = from_right(spec, right, ch_r)
+            if name:
+                self.actions[name] = (left, right)
+            
+            bar_size = right - left
+            done_size = int(value * bar_size + 0.5)
+            spec.append(self._pos['#'] + (left, done_size))
+            spec.append(self._pos['='] + (left + done_size, bar_size - done_size))
+            
+        
+        #for c in ('(' + play + ' ' + time):
+            #left = from_left(spec, left, c)
+            
+        left = from_left(spec, left, '(')
+        left = from_left(spec, left, play, name='play')
+        for c in (' ' + time):
+            left = from_left(spec, left, c)
+
+        #for c in (' ' + full + ')')[::-1]:
+            #right = from_right(spec, right, c)
+            
+        right = from_right(spec, right, ')')
+        right = from_right(spec, right, full, name='full')
+        right = from_right(spec, right, ' ')
+        
+        bar(spec,right - 50, right, volume, name='volume')
+        right -= 50
+        
+        #for c in (duration + ' ' + mute)[::-1]:
+            #right = from_right(spec, right, c)
+        
+        right = from_right(spec, right, mute, name='mute')
+        for c in (duration + ' ')[::-1]:
+            right = from_right(spec, right, c)
+        
+        bar(spec,left, right, position, name='position')
+
+        return spec
+        
+    def _drawSpec(self, painter, spec):
+        H = self._pixmap.height()
+        for img_offset, img_size, draw_offset, draw_size in spec:
+            painter.drawPixmap(
+                QRect(draw_offset, 0, draw_size, H),
+                self._pixmap,
+                QRect(img_offset, 0, img_size, H)
+            )
+        
+    def _command(self, name, x, size):
+        if self.main is not None:
+            if name == 'mute':
+                self.main.player.mute = None
+            elif name == 'play':
+                self.main.player.toggle()
+            elif name == 'full':
+                self.main.set_fullscreen()
+            elif name == 'volume':
+                self.main.player.volume = 1.0 * x / size
+            elif name == 'position':
+                self.main.player.position_fraction = 1.0 * x / size
+                
+            self.update()
+        
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            x = event.x()
+            for name in self.actions:
+                left, right = self.actions[name]
+                if left <= x < right:
+                    self._command(name, x - left, right - left)
+            
+            event.accept()
+        else:
+            QWidget.mousePressEvent(self, event)
+
+    def sizeHint(self):
+        return self.minimumSizeHint()
+
+    def minimumSizeHint(self):
+        return QSize(320, self._pixmap.height())
+    
+    def _redraw(self, main):
+        self.main = main
+        self.update()
+    
+    def paintEvent(self, event=None):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        
+        d = dict(time='00:00:00', duration='00:00:00', position=0.0, volume=1.0, play='p', mute='m', full='f')
+        
+        if self.main is None:
+            pass
+        else:
+            player = self.main.player
+            d['time']     = str(player.position)
+            d['duration'] = str(player.duration)
+            d['position'] = player.position_fraction
+            d['volume']   = player.volume
+            d['play']     = 'pP'[player.state == 'play']
+            d['mute']     = 'mM'[player.mute]
+            d['full']     = 'fF'[self.main.get_fullscreen()]
+
+        spec = self._makeSpec(**d)
+        self._drawSpec(painter, spec)
+
 class Main(QApplication, MainWindow):
     def __init__(self): 
         QApplication.__init__(self, sys.argv)
@@ -232,9 +393,17 @@ class Main(QApplication, MainWindow):
         self.entry = QLineEdit(self.window)
         self.window.layout().addWidget(self.entry)
         self.connect(self.entry, SIGNAL("returnPressed()"), self.run)
-        
+
         self.movie_window = QWidget(self.window)
         self.window.layout().addWidget(self.movie_window)
+        
+        self.controls = PlayControls(self.window)
+        self.window.layout().addWidget(self.controls)
+        
+        #self.slider = QSlider(Qt.Horizontal, self.window)
+        #self.slider.setRange (0, 1000)
+        #self.connect(self.slider,  SIGNAL('sliderReleased()'), self.gui_goto)
+        #self.window.layout().addWidget(self.slider)
         
         self.window.resize(self.window.minimumSizeHint().expandedTo(QSize(600, 400)))
         self.window.show() 
@@ -259,15 +428,22 @@ class Main(QApplication, MainWindow):
         self.entry.setText('')
        
         self.dispatch(text)
+    
+    def do_get_fullscreen(self):
+        return self.window.isFullScreen()
 
     def do_set_fullscreen(self, value):
-        if value is None:
-            value = not self.window.isFullScreen()
-            
+        self.entry.setVisible(not value)
+        
         if value:
             self.window.showFullScreen()
         else:
             self.window.showNormal()
 
-main = Main() 
-main.exec_()
+    def gui_goto(self):
+        value = float(self.slider.value())
+        self.player.position_fraction = value / 1000
+
+if __name__ == '__main__':
+    main = Main() 
+    main.exec_()
