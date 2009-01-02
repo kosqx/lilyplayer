@@ -67,9 +67,11 @@ class Controler(object):
         keys_map = {
             'Space': 'toggle',
             
-            'Up'   : 'volume +10%',
-            'Down' : 'volume -10%',
-            'M'    : 'mute',
+            'Up'       : 'volume +10%',
+            'Down'     : 'volume -10%',
+            'WheelUp'  : 'volume +5%',
+            'WheelDown': 'volume -5%',
+            'M'        : 'mute',
             
             'F'    : 'fullscreen',
             'F11'  : 'fullscreen',
@@ -485,9 +487,40 @@ def key_event_to_str(event):
 class GuiMainWindow(QMainWindow):
     def keyPressEvent(self, event):
         keys = key_event_to_str(event)
+        event.accept()
         if keys is not None:
             self.emit(SIGNAL('myKey(QString)'), QString(keys))
+   
+    def wheelEvent (self, event):
+        """
+        Qt.MouseButtons buttons (self)
+        int delta (self)
+        Qt.Orientation orientation (self)
+        """
+        print 'whell', event.globalPos(), event.delta()
+        event.accept()
+        if event.delta() < 0:
+            keys = 'WheelDown'
+        else:
+            keys = 'WheelUp'
+        self.emit(SIGNAL('myKey(QString)'), QString(keys))
+        
+    def mouseDoubleClickEvent (self, event):
+        """
+        Qt.MouseButton button (self)
+        Qt.MouseButtons buttons (self)
+        bool hasExtendedInfo (self)
 
+        """
+        event.accept()
+        print 'double', event.globalPos()
+    
+    def contextMenuEvent(self, event):
+        """
+        Reason reason (self)
+        """
+        event.accept()
+        print 'context', event.globalPos()
         
 class Main(QApplication, Controler):
     def __init__(self): 
@@ -511,7 +544,15 @@ class Main(QApplication, Controler):
 
         self.movie_window = QWidget(self.window)
         #self.movie_window.palette().background().setColor(Qt.blue)
-        self.movie_window.setStyleSheet("background-color:black")
+        #self.movie_window.setStyleSheet("background-color:black")
+        self.movie_window.setAutoFillBackground(True)
+        
+        palette = self.movie_window.palette()
+        palette.setColor(QPalette.Active, QPalette.Window, QColor(0, 0, 0))
+        palette.setColor(QPalette.Inactive, QPalette.Window, QColor(0, 0, 0))
+        
+        self.movie_window.setPalette(palette)
+        
         self.central.layout().addWidget(self.movie_window)
         
         self.controls = PlayControls(self.window)
@@ -605,7 +646,7 @@ class Main(QApplication, Controler):
         self.open_item(self.playlist.next())
         
         self.ctimer = QTimer()
-        self.ctimer.start(1000)
+        self.ctimer.start(250)
         QObject.connect(self.ctimer, SIGNAL("timeout()"), self.on_timer)
         print 'autoopen'
         
