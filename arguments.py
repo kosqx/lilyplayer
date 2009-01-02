@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
 import re
-
+from play_time import Time
 
 #####################################################################
 # Arguments types
@@ -81,9 +81,9 @@ class TimeArg(SimpleArg):
         self.regexp = '((\d*:)?\d*:)?\d*(.\d*)'
         
     def parse(self, text):
-        if re.match(self.regexp, text):
-            return 'Time(%r)' % text
-        else:
+        try:
+            return Time.parse(text)
+        except ValueError:
             raise "Not match %r regular expresion"
         
 

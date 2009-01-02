@@ -62,8 +62,10 @@ class Player(object):
      
     def toggle(self):
         state_change = {
-            'play':  'pause',
-            'pause': 'play',
+            'play':   'pause',
+            'pause':  'play',
+            'stop':   'play',
+            'finish': 'play',
         }
         
         old_state = self._do_get_state()

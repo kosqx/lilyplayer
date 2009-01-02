@@ -46,13 +46,56 @@ class Struct(object):
         args = ['%s=%r' % (i, self.__dict__[i]) for i in self.__dict__ if not i.startswith('_')]
         return 'Struct(' + ', '.join(args) + ')'
 
+def prefix_value_change(prop, prefix, value):
+    if prefix == '+':
+        return prop + value
+    elif prefix == '-':
+        return prop - value
+    else:
+        return value
 
-class MainWindow(object):
+
+class Controler(object):
     arguments_table = []
     
     def dispatch(self, args):
         parsed = parse_arguments(self.arguments_table, args)
         parsed[0](*([self] + parsed[1:]))
+
+
+    def keyboard_shortcut(self, keys):
+        keys_map = {
+            'Space': 'toggle',
+            
+            'Up'   : 'volume +10%',
+            'Down' : 'volume -10%',
+            'M'    : 'mute',
+            
+            'F'    : 'fullscreen',
+            'F11'  : 'fullscreen',
+            
+            'Left'        : 'goto -0:00:30',
+            'Right'       : 'goto +0:00:30',
+            'Alt+Left'    : 'goto -0:00:05',
+            'Alt+Right'   : 'goto +0:00:05',
+            'Shift+Left'  : 'goto -0:02:00',
+            'Shift+Right' : 'goto +0:02:00',
+            
+            '0': 'goto  0%',
+            '1': 'goto 10%',
+            '2': 'goto 20%',
+            '3': 'goto 30%',
+            '4': 'goto 40%',
+            '5': 'goto 50%',
+            '6': 'goto 60%',
+            '7': 'goto 70%',
+            '8': 'goto 80%',
+            '9': 'goto 90%',
+        }
+        
+        if keys in keys_map:
+            msg = keys_map[keys]
+            self.dispatch(msg)
 
 
     def on_timer(self):
@@ -81,6 +124,8 @@ class MainWindow(object):
         
         self.do_set_fullscreen(value)
 
+
+
     @args(arguments_table, 'exit')
     def cmd_exit(self):
         # TODO: make this better
@@ -102,21 +147,21 @@ class MainWindow(object):
         self.player.close()
     
 
-    @args(arguments_table, 'speed', FloatArg(0.25, 4.0))
-    def cmd_speed(self, val):
-        self.player.speed = val
+    @args(arguments_table, 'speed', PrefixArg(['+', '-', '=', '']), FloatArg(0.25, 4.0))
+    def cmd_speed(self, prefix, value):
+        self.player.speed = prefix_value_change(self.player.speed, prefix, value)
         
-    @args(arguments_table, 'goto', FloatArg(0.0, 1.0))
-    def cmd_goto_pos(self, val):
-        self.player.position_fraction = val
+    @args(arguments_table, 'goto', PrefixArg(['+', '-', '=', '']), FloatArg(0.0, 1.0))
+    def cmd_goto_pos(self, prefix, value):
+        self.player.position_fraction = prefix_value_change(self.player.position_fraction, prefix, value)
     
-    @args(arguments_table, 'goto', TimeArg())
-    def cmd_goto_time(self, val):
-        self.player.position = Time.parse(val)
+    @args(arguments_table, 'goto', PrefixArg(['+', '-', '=', '']), TimeArg())
+    def cmd_goto_time(self, prefix, value):
+        self.player.position = prefix_value_change(self.player.position, prefix, value)
     
-    @args(arguments_table, 'volume', FloatArg(0.0, 1.0))
-    def cmd_volume(self, val):
-        self.player.volume = val
+    @args(arguments_table, 'volume', PrefixArg(['+', '-', '=', '']), FloatArg(0.0, 1.0))
+    def cmd_volume(self, prefix, value):
+        self.player.volume = prefix_value_change(self.player.volume, prefix, value)
         
     @args(arguments_table, 'mute')
     def cmd_mute(self):
@@ -179,7 +224,7 @@ class MainWindow(object):
         
     @args(arguments_table, 'fullscreen')
     def cmd_fullscreen(self):
-        self.do_set_fullscreen(None)
+        self.set_fullscreen(None)
         
         
     @args(arguments_table, 'playlist-next')
@@ -281,28 +326,18 @@ class PlayControls(QWidget):
             done_size = int(value * bar_size + 0.5)
             spec.append(self._pos['#'] + (left, done_size))
             spec.append(self._pos['='] + (left + done_size, bar_size - done_size))
-            
-        
-        #for c in ('(' + play + ' ' + time):
-            #left = from_left(spec, left, c)
-            
+
         left = from_left(spec, left, '(')
         left = from_left(spec, left, play, name='play')
         for c in (' ' + time):
             left = from_left(spec, left, c)
-
-        #for c in (' ' + full + ')')[::-1]:
-            #right = from_right(spec, right, c)
-            
+        
         right = from_right(spec, right, ')')
         right = from_right(spec, right, full, name='full')
         right = from_right(spec, right, ' ')
         
         bar(spec,right - 50, right, volume, name='volume')
         right -= 50
-        
-        #for c in (duration + ' ' + mute)[::-1]:
-            #right = from_right(spec, right, c)
         
         right = from_right(spec, right, mute, name='mute')
         for c in (duration + ' ')[::-1]:
@@ -330,9 +365,9 @@ class PlayControls(QWidget):
             elif name == 'full':
                 self.main.set_fullscreen()
             elif name == 'volume':
-                self.main.player.volume = 1.0 * x / size
+                self.main.player.volume = 1.0 * x / (size - 1)
             elif name == 'position':
-                self.main.player.position_fraction = 1.0 * x / size
+                self.main.player.position_fraction = 1.0 * x / (size - 1)
                 
             self.update()
         
@@ -362,7 +397,6 @@ class PlayControls(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         
-        
         d = dict(time='00:00:00', duration='00:00:00', position=0.0, volume=1.0, play='p', mute='m', full='f')
         
         if self.main is None:
@@ -380,25 +414,108 @@ class PlayControls(QWidget):
         spec = self._makeSpec(**d)
         self._drawSpec(painter, spec)
 
-class Main(QApplication, MainWindow):
+    def keyPressEvent(self, event):
+        print 'keyPress'
+
+def key_event_to_str(event):
+    mods = ''
+    
+    if event.modifiers() & Qt.AltModifier:
+        mods += 'Alt+'
+    if event.modifiers() & Qt.ControlModifier:
+        mods += 'Ctrl+'
+    if event.modifiers() & Qt.ShiftModifier:
+        mods += 'Shift+'
+    if event.modifiers() & Qt.MetaModifier:
+        mods += 'Meta+'
+    
+    keys = {
+        Qt.Key_Backspace: 'Backspace',
+        Qt.Key_Tab:       'Tab',
+        Qt.Key_Return:    'Enter',
+        Qt.Key_Escape:    'Esc',
+        Qt.Key_Space:     'Space',
+        
+        Qt.Key_Insert:    'Insert',
+        Qt.Key_Delete:    'Delete',
+        Qt.Key_PageUp:    'PageUp',
+        Qt.Key_PageDown:  'PageDown',
+        Qt.Key_End:       'End',
+        Qt.Key_Home:      'Home',
+        
+        Qt.Key_Left:      'Left',
+        Qt.Key_Up:        'Up',
+        Qt.Key_Right:     'Right',
+        Qt.Key_Down:      'Down',
+        
+        Qt.Key_F1:        'F1',
+        Qt.Key_F2:        'F2',
+        Qt.Key_F3:        'F3',
+        Qt.Key_F4:        'F4',
+        Qt.Key_F5:        'F5',
+        Qt.Key_F6:        'F6',
+        Qt.Key_F7:        'F7',
+        Qt.Key_F8:        'F8',
+        Qt.Key_F9:        'F9',
+        Qt.Key_F10:       'F10',
+        Qt.Key_F11:       'F11',
+        Qt.Key_F12:       'F12',
+        
+        Qt.Key_NumLock:   'Num Lock',
+        Qt.Key_ScrollLock:'Scroll Lock'
+    }
+    
+    ekey = event.key()
+    key = None
+    
+    if ekey in keys:
+        key = keys[ekey]
+    elif ord('a') <= ekey <= ord('z'):
+        key = chr(ekey).upper()
+    elif ord('A') <= ekey <= ord('Z'):
+        key = chr(ekey).upper()
+    elif ord('0') <= ekey <= ord('9'):
+        key = chr(ekey)
+        
+    if key is not None:
+        return mods + key
+    else:
+        return None
+
+class GuiMainWindow(QMainWindow):
+    def keyPressEvent(self, event):
+        keys = key_event_to_str(event)
+        if keys is not None:
+            self.emit(SIGNAL('myKey(QString)'), QString(keys))
+
+        
+class Main(QApplication, Controler):
     def __init__(self): 
         QApplication.__init__(self, sys.argv)
         
-        self.window = QWidget()
+        self.window = GuiMainWindow()
+        self.central = QWidget()
+        self.window.setCentralWidget(self.central)
+        #self.window = QMainWindow()
         self.window.setWindowTitle("Lily Player")
-        self.window.setLayout(QVBoxLayout())
-        self.window.layout().setMargin(0)
-        self.window.layout().setSpacing(0)
+        self.central.setLayout(QVBoxLayout())
+        self.central.layout().setMargin(0)
+        self.central.layout().setSpacing(0)
+
+        self.connect(self.window, SIGNAL('myKey(QString)'), self.key)
 
         self.entry = QLineEdit(self.window)
-        self.window.layout().addWidget(self.entry)
+        self.central.layout().addWidget(self.entry)
         self.connect(self.entry, SIGNAL("returnPressed()"), self.run)
+        self.entry.setVisible(False)
 
         self.movie_window = QWidget(self.window)
-        self.window.layout().addWidget(self.movie_window)
+        #self.movie_window.palette().background().setColor(Qt.blue)
+        self.movie_window.setStyleSheet("background-color:black")
+        self.central.layout().addWidget(self.movie_window)
         
         self.controls = PlayControls(self.window)
-        self.window.layout().addWidget(self.controls)
+        self.central.layout().addWidget(self.controls)
         
         #self.slider = QSlider(Qt.Horizontal, self.window)
         #self.slider.setRange (0, 1000)
@@ -407,11 +524,80 @@ class Main(QApplication, MainWindow):
         
         self.window.resize(self.window.minimumSizeHint().expandedTo(QSize(600, 400)))
         self.window.show() 
+        #self.window_base.show() 
         
         self.player = Player.create('gstreamer', self, self.movie_window.winId())
 
         QTimer.singleShot(0, self.autoopen)
         
+        self.create_menu([
+            ('File', [
+                'Open',
+                'Close',
+                None,
+                'Exit',
+                ]),
+            ('View', [
+                'Main Menu',
+                'Controls',
+                'Sidebar',
+                'Playlist',
+                'Logs',
+                None,
+                'Configuration',
+                ]),
+            ('Playback', [
+                'Play',
+                'Pause',
+                'Stop',
+                None,
+                'Goto',
+                None,
+                ('Speed', [
+                        '25%', '50%', '100%', '200%', '400%',
+                    ])
+                ]),
+            ('Video', [
+                ('Track', [
+                    'Off',
+                    None,
+                    ]),
+                ('Aspect ratio', [
+                    'Fill', 'Default', None,
+                    '5:4', '4:3', '16:10', '16:9',
+                    ]),
+                ]),
+            ('Audio', [
+                ('Track', [
+                    'Off',
+                    None,
+                    ]),
+                ('Balance', [
+                    'Central', None,
+                    'Move left', 'Move right',
+                    ]),
+                None,
+                'Mute',
+                'Volume Down',
+                'Volume Up',
+                
+                ]),
+            ('Tools', [
+                'Snapshot',
+                'Thumbinals',
+                None,
+                'Subtitle download',
+                ]),
+            ('Help', [
+                'Help',
+                None,
+                'About',
+                ]),
+        ])
+    
+    def key(self, keys):
+        self.keyboard_shortcut(str(keys))
+
         
     def autoopen(self):
         self.playlist = Playlist(sys.argv[1:])
@@ -433,7 +619,8 @@ class Main(QApplication, MainWindow):
         return self.window.isFullScreen()
 
     def do_set_fullscreen(self, value):
-        self.entry.setVisible(not value)
+        #self.entry.setVisible(not value)
+        self.window.menuBar().setVisible(not value)
         
         if value:
             self.window.showFullScreen()
@@ -443,6 +630,36 @@ class Main(QApplication, MainWindow):
     def gui_goto(self):
         value = float(self.slider.value())
         self.player.position_fraction = value / 1000
+        
+    def create_menu(self, data):
+        def add(root, data):
+            for item in data:
+                if item is None:
+                    root.addSeparator()
+                elif isinstance(item, (tuple, list)):
+                    menu = root.addMenu(item[0])
+                    add(menu, item[1])
+                else:
+                    root.addAction(item)
+        
+        menu_bar = self.window.menuBar()
+        add(menu_bar, data)
+
+
+    def createAction(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False, signal="triggered()"):
+        action = QAction(text, self)
+        if icon is not None:
+            action.setIcon(QIcon(":/%s.png" % icon))
+        if shortcut is not None:
+            action.setShortcut(shortcut)
+        if tip is not None:
+            action.setToolTip(tip)
+            action.setStatusTip(tip)
+        if slot is not None:
+            self.connect(action, SIGNAL(signal), slot)
+        if checkable:
+            action.setCheckable(True)
+        return action
 
 if __name__ == '__main__':
     main = Main() 
