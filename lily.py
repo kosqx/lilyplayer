@@ -36,6 +36,12 @@ from arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, par
 from playlist import Playlist, PlaylistItem
 
 import compose_thumbs
+import settings
+
+__version__ = (0, 3, 1)
+__author__ = 'Krzysztof Kosyl'
+_copyright__ = 'GNU General Public License'
+
 
 class Struct(object):
     def __init__(self, **kw):
@@ -127,49 +133,21 @@ class Controler(object):
         #self.player = Player.create('gstreamer', self, self.movie_window.winId())
         self.gui = Main(self)
         self.player = Player.create('gstreamer', self.gui, self.gui.movie_window.winId())
+        settings.get_path('data', 'mainicon.png')
     
     def exec_(self):
         self.gui.exec_()
     
     def dispatch(self, args):
-        parsed = parse_arguments(self.arguments_table, args)
-        parsed[0](*([self] + parsed[1:]))
+        if args is not None:
+            parsed = parse_arguments(self.arguments_table, args)
+            parsed[0](*([self] + parsed[1:]))
 
 
     def keyboard_shortcut(self, keys):
-        keys_map = {
-            'Space': 'toggle',
-            
-            'Up'       : 'volume +10%',
-            'Down'     : 'volume -10%',
-            'WheelUp'  : 'volume +5%',
-            'WheelDown': 'volume -5%',
-            'M'        : 'mute',
-            
-            'F'    : 'fullscreen',
-            'F11'  : 'fullscreen',
-            
-            'Left'        : 'goto -0:00:30',
-            'Right'       : 'goto +0:00:30',
-            'Alt+Left'    : 'goto -0:00:05',
-            'Alt+Right'   : 'goto +0:00:05',
-            'Shift+Left'  : 'goto -0:02:00',
-            'Shift+Right' : 'goto +0:02:00',
-            
-            '0': 'goto  0%',
-            '1': 'goto 10%',
-            '2': 'goto 20%',
-            '3': 'goto 30%',
-            '4': 'goto 40%',
-            '5': 'goto 50%',
-            '6': 'goto 60%',
-            '7': 'goto 70%',
-            '8': 'goto 80%',
-            '9': 'goto 90%',
-        }
-        
-        if keys in keys_map:
-            msg = keys_map[keys]
+        shortcuts = settings.get('shortcut')
+        if keys in shortcuts:
+            msg = shortcuts[keys]
             self.dispatch(msg)
 
     def on_start(self):
@@ -185,6 +163,18 @@ class Controler(object):
         #self.slider.setValue(int(self.player.position_fraction * 1000))
         self.gui.controls._redraw(self)
 
+
+
+    def open_dlg(self):
+        filename = self.gui.do_file_dialog('Open file', mode='open', path=None, filter=None)
+        print filename
+        if filename:
+            self.open(filename)
+
+    def open(self, filename):
+        item = self.playlist.append_and_goto(filename)
+        self.open_item(item)
+
     def open_item(self, item):
         if item:
             self.player.stop()
@@ -194,6 +184,9 @@ class Controler(object):
         else:
             self.gui.window.setWindowTitle("Lily Player")
             self.player.stop()
+
+    def about(self):
+        self.gui.do_about(authors=[__author__], version=__version__)
 
     def get_fullscreen(self):
         return self.gui.do_get_fullscreen()
@@ -211,16 +204,26 @@ class Controler(object):
         # TODO: make this better
         exit()
 
+    @args(arguments_table, 'about')
+    def cmd_about(self):
+        self.about()
+
+    @args(arguments_table, 'cmddlg')
+    def cmd_cmddlg(self):
+        cmd = self.gui.do_input_dlg('Run command', 'Enter command')
+        self.dispatch(cmd)
+    
     @args(arguments_table, 'open', StrArg())
     def cmd_open(self, url):
-        self.player.open(url)
+        self.open(url)
         
     @args(arguments_table, 'opendlg')
     def cmd_opendlg(self):
-        filename = QFileDialog.getOpenFileName(self.window, 'Open file', '/home/kosqx')
-        print filename
-        if filename:
-            self.player.open(str(filename))
+        self.open_dlg()
+        #filename = QFileDialog.getOpenFileName(self.window, 'Open file', '/home/kosqx')
+        #print filename
+        #if filename:
+            #self.player.open(str(filename))
     
     @args(arguments_table, 'close')
     def cmd_close(self):
@@ -302,11 +305,15 @@ class Controler(object):
     def cmd_toggle(self):
         self.player.toggle()
         
+    @args(arguments_table, 'fullscreen', EnumArg({'on': True, 'off': False}))
+    def cmd_fullscreen(self, enum):
+        self.set_fullscreen(enum)
+
     @args(arguments_table, 'fullscreen')
     def cmd_fullscreen(self):
         self.set_fullscreen(None)
-        
-        
+
+
     @args(arguments_table, 'playlist-next')
     def cmd_playlist_next(self):
         print 'playlist next'

@@ -69,7 +69,6 @@ class Player(object):
         }
         
         old_state = self._do_get_state()
-        print '..toggle', old_state
         if old_state in state_change:
             self._do_set_state(state_change[old_state])
      
@@ -189,7 +188,6 @@ class GStreamerPlayer(Player):
             self.pipeline.set_state(gst.STATE_PLAYING)
         
         def cb_snapshot(self, element, buffer, pad):
-            print 'cb_snapshot', len(buffer)
             self.buffer = buffer
             return True
         
@@ -219,11 +217,6 @@ class GStreamerPlayer(Player):
         self._thread.start()
 
         self._snapshot_conventer = GStreamerPlayer.SnapshotPipeline()
-        
-        #print dir(self._player)
-        #for i in self._player:
-            #print i 
-        
         
         self._was_eos = False
         
@@ -290,7 +283,6 @@ class GStreamerPlayer(Player):
                 #print '\t%s = %s' % (key, taglist[key])
 
     def _cb_sync_message(self, bus, message):
-        print message.type, message
         if message.structure is None:
             return
         message_name = message.structure.get_name()
@@ -331,7 +323,6 @@ class GStreamerPlayer(Player):
         try:
             return self._player.query_position(self._time_format, None)[0]
         except gst.QueryError, e:
-            print e
             return 0
 
     def _dur(self):
@@ -340,7 +331,6 @@ class GStreamerPlayer(Player):
         try:
             return self._player.query_duration(self._time_format, None)[0]
         except gst.QueryError, e:
-            print e
             return 0
 
     def _do_open(self, url, start=True):

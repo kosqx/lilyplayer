@@ -21,10 +21,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
 import sys
+import os.path
 
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+
+import settings
+import utils
 
 
 class PlayControls(QWidget):
@@ -33,39 +37,12 @@ class PlayControls(QWidget):
         self.controler = controler
         self.actions = {}
         
-        pos_data = """
-        0    0   7
-        1    7   7
-        2   14   7
-        3   21   7
-        4   28   7
-        5   35   7
-        6   42   7
-        7   49   7
-        8   56   7
-        9   63   7
-        :   70   7
-        (   77   7
-        )   84   7
-        _   91   7
-        p   98  16    play sign
-        P  114  16    pause sign
-        m  130  16    sound on
-        M  146  16    sound off
-        f  162  16    normal screen
-        F  178  16    full screen
-        {  194   5
-        #  199   5
-        }  204   5
-        [  209   5
-        =  214   5
-        ]  219   5
-        """
+        pos_data = utils.File(settings.get_path('data', 'controls.txt')).read()
         
         self._pos = {}
         for line in pos_data.splitlines():
             parts = line.split()
-            if parts:
+            if parts and not parts[0].startswith('#'):
                 self._pos[parts[0]] = (int(parts[1]), int(parts[2]))
         if '_' in self._pos:
             self._pos[' '] = tuple(self._pos['_'])
@@ -75,26 +52,20 @@ class PlayControls(QWidget):
         assert self._pos[']'][1] == self._pos['}'][1]
         
         self.setSizePolicy(QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed))
-        self._pixmap = QPixmap('/home/kosqx/newc.png')
+        self._pixmap = QPixmap(settings.get_path('data', 'controls.png'))
 
         
     def _makeSpec(self, time, duration, position, volume, play='p', mute='m', full='f'):
-        spec = []
-        self.actions = {}
-        
-        left = 0
-        right = self.width()
-        
         def from_left(spec, left, c, name=None):
             x, l = self._pos[c]
-            spec.append((x, l, left, l))
+            spec.append((left, l, x, l))
             if name:
                 self.actions[name] = (left, left + l)
             return left + l
         
         def from_right(spec, right, c, name=None):
             x, l = self._pos[c]
-            spec.append((x, l, right - l, l))
+            spec.append((right - l, l, x, l))
             if name:
                 self.actions[name] = (right - l, right)
             return right - l
@@ -111,8 +82,14 @@ class PlayControls(QWidget):
             
             bar_size = right - left
             done_size = int(value * bar_size + 0.5)
-            spec.append(self._pos['#'] + (left, done_size))
-            spec.append(self._pos['='] + (left + done_size, bar_size - done_size))
+            spec.append((left, done_size) + self._pos['$'])
+            spec.append((left + done_size, bar_size - done_size) + self._pos['='])
+            
+        spec = []
+        self.actions = {}
+        
+        left = 0
+        right = self.width()
 
         left = from_left(spec, left, '(')
         left = from_left(spec, left, play, name='play')
@@ -132,11 +109,11 @@ class PlayControls(QWidget):
         
         bar(spec,left, right, position, name='position')
 
-        return spec
+        return sorted(spec)
         
     def _drawSpec(self, painter, spec):
         H = self._pixmap.height()
-        for img_offset, img_size, draw_offset, draw_size in spec:
+        for draw_offset, draw_size, img_offset, img_size in spec:
             painter.drawPixmap(
                 QRect(draw_offset, 0, draw_size, H),
                 self._pixmap,
@@ -201,9 +178,6 @@ class PlayControls(QWidget):
         spec = self._makeSpec(**d)
         self._drawSpec(painter, spec)
 
-    def keyPressEvent(self, event):
-        print 'keyPress'
-
 def key_event_to_str(event):
     mods = ''
     
@@ -222,6 +196,52 @@ def key_event_to_str(event):
         Qt.Key_Return:    'Enter',
         Qt.Key_Escape:    'Esc',
         Qt.Key_Space:     'Space',
+        
+        Qt.Key_CapsLock:  'CapsLock',
+        Qt.Key_NumLock:   'NumLock',
+        Qt.Key_ScrollLock:'ScrollLock',
+        
+        Qt.Key_Exclam:       'Exclam',       # !
+        Qt.Key_At:           'At',           # @
+        Qt.Key_NumberSign:   'Hash',         # #
+        Qt.Key_Dollar:       'Dollar',       # $
+        Qt.Key_Percent:      'Percent',      # %
+        Qt.Key_AsciiCircum:  'Caret',        # ^
+        Qt.Key_Ampersand:    'Ampersand',    # &
+        Qt.Key_Asterisk:     'Asterisk',     # *
+
+        Qt.Key_ParenLeft:    'ParenLeft',    # (
+        Qt.Key_ParenRight:   'ParenRight',   # )
+        Qt.Key_BracketLeft:  'BracketLeft',  # [
+        Qt.Key_BracketRight: 'BracketRight', # ]
+        Qt.Key_BraceLeft:    'BraceLeft',    # {
+        Qt.Key_BraceRight:   'BraceRight',   # }
+        Qt.Key_Less:         'Less',         # <
+        Qt.Key_Greater:      'Greater',      # >
+        
+        Qt.Key_AsciiTilde:   'Tilde',        # ~
+        Qt.Key_QuoteLeft:    'Grave',        # `
+        
+        Qt.Key_Underscore:   'Underscore',   # _
+        Qt.Key_Minus:        'Minus',        # -
+        
+        Qt.Key_Plus:         'Plus',         # +
+        Qt.Key_Equal:        'Equal',        # =
+        
+        Qt.Key_Bar:          'Pipe',          # |
+        Qt.Key_Backslash:    'Backslash',    # \
+        
+        Qt.Key_Colon:        'Colon',        # :
+        Qt.Key_Semicolon:    'Semicolon',    # ;
+        
+        Qt.Key_QuoteDbl:     'Quote',        # "
+        Qt.Key_Apostrophe:   'Apostrophe',   # '
+        
+        Qt.Key_Comma:        'Comma',        # ,
+        Qt.Key_Period:       'Dot',          # .
+        
+        Qt.Key_Question:     'Question',     # ?
+        Qt.Key_Slash:        'Slash',        # /
         
         Qt.Key_Insert:    'Insert',
         Qt.Key_Delete:    'Delete',
@@ -247,9 +267,6 @@ def key_event_to_str(event):
         Qt.Key_F10:       'F10',
         Qt.Key_F11:       'F11',
         Qt.Key_F12:       'F12',
-        
-        Qt.Key_NumLock:   'Num Lock',
-        Qt.Key_ScrollLock:'Scroll Lock'
     }
     
     ekey = event.key()
@@ -263,7 +280,8 @@ def key_event_to_str(event):
         key = chr(ekey).upper()
     elif ord('0') <= ekey <= ord('9'):
         key = chr(ekey)
-        
+    
+    #print mods, key
     if key is not None:
         return mods + key
     else:
@@ -307,6 +325,7 @@ class GuiMainWindow(QMainWindow):
         event.accept()
         print 'context', event.globalPos()
         
+        
 class Main(QApplication):
     def __init__(self, controler=None): 
         QApplication.__init__(self, sys.argv)
@@ -314,7 +333,10 @@ class Main(QApplication):
         #self.controler = Controler()
         self.controler = controler
         
+        self.setWindowIcon(QIcon(settings.get_path('data', 'mainicon.png')))
+        
         self.window = GuiMainWindow()
+        
         self.central = QWidget()
         self.window.setCentralWidget(self.central)
         #self.window = QMainWindow()
@@ -389,6 +411,52 @@ class Main(QApplication):
             self.window.showFullScreen()
         else:
             self.window.showNormal()
+            
+    def do_file_dialog(self, title, mode='open', path=None, filter=None):
+        if path is None:
+            path = os.path.expanduser('~')
+        else:
+            path = path
+      
+        if filter is None:
+            filter = ''
+        else:
+            filter = ';;'.join('%s (%s)' % (name, ' '.join(exts)) for name, exts in filter)
+        if mode == 'save':
+            return unicode(QFileDialog.getSaveFileName(self.window, QString(title), QString(path), QString(filter)))
+        elif mode == 'open':
+            return unicode(QFileDialog.getOpenFileName (self.window, QString(title), QString(path), QString(filter)))
+        elif mode == 'open_many':
+            filelist = QFileDialog.getOpenFileName (self.window, QString(title), QString(path), QString(filter))
+            return [unicode(filelist[i]) for i in xrange(len(filelist))]
+            
+    def do_input_dlg(self, title, label, text=''):
+        result, ok = QInputDialog.getText(self.window, QString(title), QString(label), QLineEdit.Normal, QString(text))
+        if ok:
+            return unicode(result)
+        else:
+            return None
+            
+    def do_about(self, authors, version):
+        QMessageBox.about(self.window, "About Lily Player",
+                """<b>Lily Player</b> v %(version)s
+                <p>Copyright &copy; 2008,2009 %(authors)s.</p>
+                
+                <table>
+                    <tr><td>Python</td><td>2.5</td></tr>
+                    <tr><td>Qt  </td><td>4.4.2</td></tr>
+                    <tr><td>PyQt</td><td>4.3</td></tr>
+                    <tr><td>GStreamer</td><td>0.10.2</td></tr>
+                </table>
+                """ % {
+                    'version': '.'.join(str(i) for i in version), 
+                    'authors': ', '.join(str(i) for i in authors), 
+                })
+                
+                
+                #"""<p>Python %s - Qt %s - PyQt %s on %s""" % (
+                #platform.python_version(),
+                #QT_VERSION_STR, PYQT_VERSION_STR, platform.system()))
         
     def update_menu(self, data):
         def add(root, data):

@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
 import re
+import os.path
 import unittest
 
 # ToDo: try remove this import and create own simple procedure
@@ -48,6 +49,25 @@ def at_index_or(vector, index, default=None):
         return vector[index]
     except:
         return default
+
+
+class File(object):
+    def __init__(self, path):
+        if isinstance(path, basestring):
+            self.path = os.path.abspath(path)
+        else:
+            self.path = os.path.join(os.path.expanduser(path[0]), *path[1:])
+    
+    def read(self):
+        f = open(self.path)
+        d = f.read()
+        f.close()
+        return d
+    
+    def write(self, data):
+        f = open(self.path)
+        f.write(data)
+        f.close()
 
 
 class Null(object):

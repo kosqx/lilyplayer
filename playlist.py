@@ -45,6 +45,14 @@ class Playlist(object):
         else:
             return None
 
+    def append(self, filename):
+        self.items.append(PlaylistItem(filename))
+
+    def append_and_goto(self, filename):
+        self.items.append(PlaylistItem(filename))
+        self.current = len(self.items) - 1
+        return self.get()
+
     def goto(self, index):
         self.current = index
         return self.get()
