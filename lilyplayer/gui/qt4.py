@@ -27,8 +27,8 @@ import os.path
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-import settings
-import utils
+import lilyplayer.settings as settings
+import lilyplayer.utils.utils as utils
 
 
 class PlayControls(QWidget):
@@ -391,7 +391,7 @@ class ActionWrap(object):
     def __call__(self, *other):
         self.fun(*(self.args + other))
 
-class Main(QApplication):
+class GuiMain(QApplication):
     def __init__(self, controler=None): 
         QApplication.__init__(self, sys.argv)
         

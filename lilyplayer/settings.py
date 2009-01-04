@@ -65,5 +65,6 @@ def set(name, value):
     _settings_data[name] = value
 
 def get_path(space, name):
-    return os.path.join(os.path.dirname(__file__), space, name)
+    return os.path.join('/usr/share/lilyplayer', space, name)
+    #return os.path.join(os.path.dirname(__file__), space, name)
 

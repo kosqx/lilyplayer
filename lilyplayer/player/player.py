@@ -20,18 +20,21 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
 import time
+import threading
 
 import pygst
 pygst.require("0.10")
 import gst
 import gobject
 
+
+
 from PyQt4.QtCore import QThread
 
-from utils import clamp
-from play_time import Time
+from lilyplayer.utils.utils import clamp
+from lilyplayer.utils.play_time import Time
 
-import threading
+
 
 
 class Player(object):

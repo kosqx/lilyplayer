@@ -28,17 +28,17 @@ import random
 import platform
 
 
-from gui import Main
+from gui.qt4 import GuiMain
 
 
-from play_time import Time
-from player import Player
-from arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
-from playlist import Playlist, PlaylistItem
+from utils.play_time import Time
+from player.player import Player
+from utils.arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
+from playlist.playlist import Playlist, PlaylistItem
 
-import compose_thumbs
+import utils.compose_thumbs as compose_thumbs
 import settings
-import utils
+import utils.utils as utils
 
 __version__ = (0, 3, 1)
 __author__ = 'Krzysztof Kosyl'
@@ -193,7 +193,7 @@ class Controler(object):
     def __init__(self):
         pass
         #self.player = Player.create('gstreamer', self, self.movie_window.winId())
-        self.gui = Main(self)
+        self.gui = GuiMain(self)
         self.player = Player.create('gstreamer', self.gui, self.gui.movie_window.winId())
         settings.get_path('data', 'mainicon.png')
     
@@ -419,6 +419,9 @@ class Controler(object):
     def cmd_playlist_goto(self, index):
         self.open_item(self.playlist.goto(index))
 
-if __name__ == '__main__':
+def main():
     controler = Controler() 
     controler.exec_()
+
+if __name__ == '__main__':
+    main()
