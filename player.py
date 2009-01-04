@@ -223,6 +223,12 @@ class GStreamerPlayer(Player):
         # works
         #print gst.xml_write(self._player)
 
+    def versions(self):
+        return [
+            ('GStreamer',   '.'.join(str(i) for i in gst.version()[:3])),
+            ('PyGStreamer', pygst._pygst_version),
+        ]
+
     def _cb_snapshot(self, element, buffer, pad):
         self._snapshot_buffer = buffer
         return True

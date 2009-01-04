@@ -325,7 +325,72 @@ class GuiMainWindow(QMainWindow):
         event.accept()
         print 'context', event.globalPos()
         
+class GuiThumbinalDialog(object):
+    def __init__(self, parent=None):
+        self.dialog = QDialog(parent)
+        self.dialog.setWindowTitle("Thumbinals")
         
+        grid = QGridLayout()
+        
+        self.colsSpinBox = QSpinBox(self.dialog)
+        self.colsSpinBox.setRange(1, 10)
+        colsLabel = QLabel('Number of columns', self.dialog)
+        grid.addWidget(colsLabel,        0, 0)
+        grid.addWidget(self.colsSpinBox, 0, 1)
+
+        self.rowsSpinBox = QSpinBox(self.dialog)
+        self.rowsSpinBox.setRange(1, 40)
+        rowsLabel = QLabel('Number of rows', self.dialog)
+        grid.addWidget(rowsLabel,        0, 2)
+        grid.addWidget(self.rowsSpinBox, 0, 3)
+        
+        self.sizeSpinBox = QSpinBox(self.dialog)
+        self.sizeSpinBox.setRange(100, 600)
+        self.sizeSpinBox.setSingleStep(10)
+        sizeLabel = QLabel('Thumbinal size', self.dialog)
+        grid.addWidget(sizeLabel,        1, 0)
+        grid.addWidget(self.sizeSpinBox, 1, 1)
+        
+        self.marginSpinBox = QSpinBox(self.dialog)
+        self.marginSpinBox.setRange(0, 20)
+        marginLabel = QLabel('Margin', self.dialog)
+        grid.addWidget(marginLabel,        1, 2)
+        grid.addWidget(self.marginSpinBox, 1, 3)
+        
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok|QDialogButtonBox.Cancel)
+        grid.addWidget(buttonBox, 2, 0, 1, 4)
+        
+        self.dialog.connect(buttonBox, SIGNAL("accepted()"), self.dialog, SLOT("accept()"))
+        self.dialog.connect(buttonBox, SIGNAL("rejected()"), self.dialog, SLOT("reject()"))
+        
+        self.dialog.setLayout(grid)
+
+        
+    def run(self, defaults):
+        d = defaults
+        self.colsSpinBox.setValue(d.cols)
+        self.rowsSpinBox.setValue(d.rows)
+        self.sizeSpinBox.setValue(d.size)
+        self.marginSpinBox.setValue(d.margin)
+        
+        if self.dialog.exec_():
+            return utils.Struct(
+                cols=self.colsSpinBox.value(),
+                rows=self.rowsSpinBox.value(),
+                size=self.sizeSpinBox.value(),
+                margin=self.marginSpinBox.value(),
+            )
+        else:
+            return None
+        
+class ActionWrap(object):
+    def __init__(self, fun, *args):
+        self.fun = fun
+        self.args = args
+        pass
+    def __call__(self, *other):
+        self.fun(*(self.args + other))
+
 class Main(QApplication):
     def __init__(self, controler=None): 
         QApplication.__init__(self, sys.argv)
@@ -430,6 +495,12 @@ class Main(QApplication):
             filelist = QFileDialog.getOpenFileName (self.window, QString(title), QString(path), QString(filter))
             return [unicode(filelist[i]) for i in xrange(len(filelist))]
             
+            
+    def do_thumbinals_dialog(self, defaults):
+        dlg = GuiThumbinalDialog(self.window)
+        return dlg.run(defaults)
+
+            
     def do_input_dlg(self, title, label, text=''):
         result, ok = QInputDialog.getText(self.window, QString(title), QString(label), QLineEdit.Normal, QString(text))
         if ok:
@@ -437,41 +508,43 @@ class Main(QApplication):
         else:
             return None
             
-    def do_about(self, authors, version):
+    def do_about(self, authors, version, libs=[]):
+        libs = libs + [
+            ('Qt',   QT_VERSION_STR),
+            ('PyQt', PYQT_VERSION_STR),
+        ]
+        
         QMessageBox.about(self.window, "About Lily Player",
-                """<b>Lily Player</b> v %(version)s
+                """<b>Lily Player</b> v%(version)s
                 <p>Copyright &copy; 2008,2009 %(authors)s.</p>
-                
-                <table>
-                    <tr><td>Python</td><td>2.5</td></tr>
-                    <tr><td>Qt  </td><td>4.4.2</td></tr>
-                    <tr><td>PyQt</td><td>4.3</td></tr>
-                    <tr><td>GStreamer</td><td>0.10.2</td></tr>
-                </table>
+                <br/><br/>
+                Software versions:
+                <table>v%(libs)s</table>
                 """ % {
                     'version': '.'.join(str(i) for i in version), 
-                    'authors': ', '.join(str(i) for i in authors), 
+                    'authors': ', '.join(str(i) for i in authors),
+                    'libs':    '\n'.join('<tr><td>%s&nbsp;</td><td>%s</td></tr>' % lib for lib in libs) 
                 })
-                
-                
-                #"""<p>Python %s - Qt %s - PyQt %s on %s""" % (
-                #platform.python_version(),
-                #QT_VERSION_STR, PYQT_VERSION_STR, platform.system()))
-        
+    
+    
+    def on_menu_item(self, cmd, *skip):
+        self.controler.dispatch(cmd)
+
     def update_menu(self, data):
         def add(root, data):
             for item in data:
-                if item is None:
+                if item.is_separator():
                     root.addSeparator()
-                elif isinstance(item, (tuple, list)):
-                    menu = root.addMenu(item[0])
-                    add(menu, item[1])
-                else:
-                    root.addAction(item)
+                elif item.is_submenu():
+                    menu = root.addMenu(item.text)
+                    add(menu, item.submenu)
+                elif item.is_item():
+                    action = root.addAction(item.text)
+                    self.connect(action, SIGNAL("triggered()"), ActionWrap(self.on_menu_item, item.cmd))
         
         menu_bar = self.window.menuBar()
         menu_bar.clear()
-        add(menu_bar, data)
+        add(menu_bar, data.submenu)
 
 
     def createAction(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False, signal="triggered()"):

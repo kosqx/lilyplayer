@@ -25,6 +25,7 @@ import os
 import os.path
 import time
 import random
+import platform
 
 
 from gui import Main
@@ -37,19 +38,12 @@ from playlist import Playlist, PlaylistItem
 
 import compose_thumbs
 import settings
+import utils
 
 __version__ = (0, 3, 1)
 __author__ = 'Krzysztof Kosyl'
 _copyright__ = 'GNU General Public License'
 
-
-class Struct(object):
-    def __init__(self, **kw):
-        self.__dict__.update(kw)
-    
-    def __repr__(self):
-        args = ['%s=%r' % (i, self.__dict__[i]) for i in self.__dict__ if not i.startswith('_')]
-        return 'Struct(' + ', '.join(args) + ')'
 
 def prefix_value_change(prop, prefix, value):
     if prefix == '+':
@@ -59,75 +53,143 @@ def prefix_value_change(prop, prefix, value):
     else:
         return value
 
+class MenuItem(object):
+    @staticmethod
+    def text_to_name(text):
+        result = []
+        for c in text.lower():
+            if ('a' <= c <= 'z') or ('0' <= c <= '9'):
+                result.append(c)
+        return ''.join(result)
+    
+    def __init__(self, text, name=None, cmd=None, submenu=None):
+        self.text = text
+        if name:
+            self.name = name
+        else:
+            self.name = MenuItem.text_to_name(text)
+        
+        self.cmd     = cmd
+        self.submenu = submenu
+        
+    def is_item(self):
+        return self.cmd is not None
+    
+    def is_submenu(self):
+        return self.submenu is not None
+    
+    def is_separator(self):
+         return (self.cmd is None) and (self.submenu is None)
+    
+    def by_name(self, name):
+        result = []
+        
+        if self.submenu:
+            for item in self.submenu:
+                if name == item.name or (name.endswith(':') and item.name.startswith(name)):
+                    result.append(item)
+        
+        return result
 
 class Controler(object):
     arguments_table = []
         
-    main_menu = [
-        ('File', [
-            'Open',
-            'Close',
-            None,
-            'Exit',
-            ]),
-        ('View', [
-            'Main Menu',
-            'Controls',
-            'Sidebar',
-            'Playlist',
-            'Logs',
-            None,
-            'Configuration',
-            ]),
-        ('Playback', [
-            'Play',
-            'Pause',
-            'Stop',
-            None,
-            'Goto',
-            None,
-            ('Speed', [
-                    '25%', '50%', '100%', '200%', '400%',
-                ])
-            ]),
-        ('Video', [
-            ('Track', [
-                'Off',
-                None,
-                ]),
-            ('Aspect ratio', [
-                'Fill', 'Default', None,
-                '5:4', '4:3', '16:10', '16:9',
-                ]),
-            ]),
-        ('Audio', [
-            ('Track', [
-                'Off',
-                None,
-                ]),
-            ('Balance', [
-                'Central', None,
-                'Move left', 'Move right',
-                ]),
-            None,
-            'Mute',
-            'Volume Down',
-            'Volume Up',
+    #main_menu = [
+        #('File', [
+            #'Open',
+            #'Close',
+            #None,
+            #'Exit',
+            #]),
+        #('View', [
+            #'Main Menu',
+            #'Controls',
+            #'Sidebar',
+            #'Playlist',
+            #'Logs',
+            #None,
+            #'Configuration',
+            #]),
+        #('Playback', [
+            #'Play',
+            #'Pause',
+            #'Stop',
+            #None,
+            #'Goto',
+            #None,
+            #('Speed', [
+                    #'25%', '50%', '100%', '200%', '400%',
+                #])
+            #]),
+        #('Video', [
+            #('Track', [
+                #'Off',
+                #None,
+                #]),
+            #('Aspect ratio', [
+                #'Fill', 'Default', None,
+                #'5:4', '4:3', '16:10', '16:9',
+                #]),
+            #]),
+        #('Audio', [
+            #('Track', [
+                #'Off',
+                #None,
+                #]),
+            #('Balance', [
+                #'Central', None,
+                #'Move left', 'Move right',
+                #]),
+            #None,
+            #'Mute',
+            #'Volume Down',
+            #'Volume Up',
             
+            #]),
+        #('Tools', [
+            #'Snapshot',
+            #'Thumbinals',
+            #None,
+            #'Subtitle download',
+            #]),
+        #('Help', [
+            #'Help',
+            #None,
+            #'About',
+            #]),
+    #]
+    
+    main_menu = MenuItem('', submenu=[
+        MenuItem('File', submenu=[
+            MenuItem('Open', cmd='opendlg'),
+            MenuItem('Close', cmd='close'),
+            MenuItem(''),
+            MenuItem('Exit', cmd='exit'),
+        ]),
+        MenuItem('Playback', submenu=[
+            MenuItem('Play', cmd='play'),
+            MenuItem('Pause', cmd='pause'),
+            MenuItem('Stop', cmd='stop'),
+            MenuItem(''),
+            MenuItem('Goto', cmd='gotodlg'),
+            MenuItem(''),
+            MenuItem('Speed', submenu=[
+                MenuItem('25%',  cmd='speed 25%'),
+                MenuItem('50%',  cmd='speed 50%'),
+                MenuItem('100%', cmd='speed 100%'),
+                MenuItem('200%', cmd='speed 25%'),
+                MenuItem('400%', cmd='speed 25%'),
             ]),
-        ('Tools', [
-            'Snapshot',
-            'Thumbinals',
-            None,
-            'Subtitle download',
-            ]),
-        ('Help', [
-            'Help',
-            None,
-            'About',
-            ]),
-    ]
-        
+        ]),
+        MenuItem('Tools', submenu=[
+            MenuItem('Snapshot', cmd='snap'),
+            MenuItem('Thumbinals', cmd='thumbdlg'),
+        ]),
+        MenuItem('Help', submenu=[
+            MenuItem('About', cmd='about'),
+        ]),
+    ])
+
     def __init__(self):
         pass
         #self.player = Player.create('gstreamer', self, self.movie_window.winId())
@@ -185,8 +247,20 @@ class Controler(object):
             self.gui.window.setWindowTitle("Lily Player")
             self.player.stop()
 
+    def goto_dlg(self):
+        time = self.gui.do_input_dlg('Run command', 'Enter command', str(self.player.position))
+        try:
+            self.player.position = Time.parse(time)
+        except ValueError:
+            pass
+
     def about(self):
-        self.gui.do_about(authors=[__author__], version=__version__)
+        libs = [ 
+            ('Python', platform.python_version()),
+            ('System', platform.system() + " " + platform.release()),
+        ]
+        libs.extend(self.player.versions())
+        self.gui.do_about(authors=[__author__], version=__version__, libs=libs)
 
     def get_fullscreen(self):
         return self.gui.do_get_fullscreen()
@@ -197,7 +271,48 @@ class Controler(object):
         
         self.gui.do_set_fullscreen(value)
 
+    def thumbinals(self, cols, rows, size, margin):
+        count = rows * cols
+        
+        saved_pos = self.player.position_fraction
+        saved_state = self.player.state
+        self.player.pause()
+        
+        result = []
+        
+        for i in xrange(1, count + 1):
+            last_pos = self.player.position_fraction
+            seek_pos = i * (1.0 / (count + 1))
+            self.player.position_fraction = seek_pos
 
+            format, data = self.player.snapshot()
+            label = str(self.player.position)
+            result.append((data, label))
+
+            #filename = os.path.expanduser('~/thumb_%.4d.%s' % (i, format))
+            #fo = open(filename, 'wb')
+            #fo.write(data)
+            #fo.close()
+
+        compose_thumbs.compose(
+                result, 
+                outfile=os.path.join(os.path.expanduser('~'), 'thumb.png'),
+                size=size, cols=cols, border=margin,
+        )
+        
+        self.player.position_fraction = saved_pos
+        self.player.state = saved_state
+
+
+    def thumbinals_dialog(self):
+        struct = self.gui.do_thumbinals_dialog(utils.Struct(cols=4, rows=10, size=200, margin=10))
+        if struct is not None:
+            s = struct
+            self.thumbinals(s.cols, s.rows, s.size, s.margin)
+
+    @args(arguments_table, 'thumbdlg')
+    def cmd_thumb_dlg(self):
+        self.thumbinals_dialog()
 
     @args(arguments_table, 'exit')
     def cmd_exit(self):
@@ -212,6 +327,10 @@ class Controler(object):
     def cmd_cmddlg(self):
         cmd = self.gui.do_input_dlg('Run command', 'Enter command')
         self.dispatch(cmd)
+        
+    @args(arguments_table, 'gotodlg')
+    def cmd_gotodlg(self):
+        self.goto_dlg()
     
     @args(arguments_table, 'open', StrArg())
     def cmd_open(self, url):
@@ -258,36 +377,9 @@ class Controler(object):
         fo.write(data)
         fo.close()
 
-    @args(arguments_table, 'thumb', IntArg(1, 1000))
-    def cmd_snap(self, count):
-        saved_pos = self.player.position_fraction
-        saved_state = self.player.state
-        self.player.pause()
-        
-        result = []
-        
-        for i in xrange(1, count + 1):
-            last_pos = self.player.position_fraction
-            seek_pos = i * (1.0 / (count + 1))
-            self.player.position_fraction = seek_pos
-
-            format, data = self.player.snapshot()
-            label = str(self.player.position)
-            result.append((data, label))
-
-            #filename = os.path.expanduser('~/thumb_%.4d.%s' % (i, format))
-            #fo = open(filename, 'wb')
-            #fo.write(data)
-            #fo.close()
-
-        compose_thumbs.compose(
-                result, 
-                outfile=os.path.join(os.path.expanduser('~'), 'thumb.png'),
-                size=200, cols=4, border=5,
-        )
-        
-        self.player.position_fraction = saved_pos
-        self.player.state = saved_state
+    @args(arguments_table, 'thumb', IntArg(1, 10), IntArg(1, 100))
+    def cmd_thumb(self, rows, cols):
+        self.thumbinals(rows, cols, 200, 10)
 
     @args(arguments_table, 'play')
     def cmd_play(self):
@@ -306,7 +398,7 @@ class Controler(object):
         self.player.toggle()
         
     @args(arguments_table, 'fullscreen', EnumArg({'on': True, 'off': False}))
-    def cmd_fullscreen(self, enum):
+    def cmd_fullscreen_enum(self, enum):
         self.set_fullscreen(enum)
 
     @args(arguments_table, 'fullscreen')

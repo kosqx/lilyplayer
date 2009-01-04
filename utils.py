@@ -70,6 +70,17 @@ class File(object):
         f.close()
 
 
+class Struct(object):
+    """
+    Simple structure like object, used in place simple dicts.
+    """
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+    
+    def __repr__(self):
+        args = ['%s=%r' % (i, self.__dict__[i]) for i in self.__dict__ if not i.startswith('_')]
+        return 'Struct(' + ', '.join(args) + ')'
+
 class Null(object):
     """ Null objects always and reliably "do nothing." """
     # optional optimization: ensure only one instance per subclass
