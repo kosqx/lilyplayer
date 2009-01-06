@@ -234,6 +234,8 @@ class Controler(object):
             self.open(filename)
 
     def open(self, filename):
+        if filename.startswith('file://'):
+            filename = filename[7:]
         item = self.playlist.append_and_goto(filename)
         self.open_item(item)
 
@@ -309,6 +311,16 @@ class Controler(object):
         if struct is not None:
             s = struct
             self.thumbinals(s.cols, s.rows, s.size, s.margin)
+            
+    @args(arguments_table, 'video-scale', FloatArg(0.2, 5.0))
+    def cmd_video_size(self, scale):
+        if self.player.video is not None:
+            w = scale * self.player.video.width
+            h = scale * self.player.video.height
+            self.gui.do_resize_video_window(w, h)
+        else:
+            pass
+            #self.log("WARN", "Can not 'video-scale' - video size unknown")
 
     @args(arguments_table, 'thumbdlg')
     def cmd_thumb_dlg(self):

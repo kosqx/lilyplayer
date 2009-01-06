@@ -2,7 +2,7 @@
 #-*- coding: utf-8 -*-
 
 """
-Copyright (C) 2008  Krzysztof Kosyl <krzysztof.kosyl@gmail.com>
+Copyright (C) 2008,2009  Krzysztof Kosyl <krzysztof.kosyl@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -34,6 +34,9 @@ import lilyplayer.utils.utils as utils
 class PlayControls(QWidget):
     def __init__(self, parent, controler):
         QWidget.__init__(self, parent)
+        
+        self.setAcceptDrops(True)
+        
         self.controler = controler
         self.actions = {}
         
@@ -119,6 +122,8 @@ class PlayControls(QWidget):
                 self._pixmap,
                 QRect(img_offset, 0, img_size, H)
             )
+            
+        
         
     def _command(self, name, x, size):
         if self.controler is not None:
@@ -288,6 +293,10 @@ def key_event_to_str(event):
         return None
 
 class GuiMainWindow(QMainWindow):
+    def __init__(self, controler):
+        QMainWindow.__init__(self)
+        self.controler = controler
+    
     def keyPressEvent(self, event):
         keys = key_event_to_str(event)
         event.accept()
@@ -316,6 +325,9 @@ class GuiMainWindow(QMainWindow):
 
         """
         event.accept()
+        # TODO: doubleClick(x,y)
+        # self.emit(SIGNAL('doubleClick()'))
+        self.controler.set_fullscreen()
         print 'double', event.globalPos()
     
     def contextMenuEvent(self, event):
@@ -324,6 +336,24 @@ class GuiMainWindow(QMainWindow):
         """
         event.accept()
         print 'context', event.globalPos()
+
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if event.mimeData().hasUrls():
+            urls = [unicode(i.path()) for i in event.mimeData().urls()]
+            event.acceptProposedAction()
+            event.setDropAction(Qt.CopyAction)
+            print urls
+            self.controler.open(urls[0])
+        else:
+            event.ignore()
+
         
 class GuiThumbinalDialog(object):
     def __init__(self, parent=None):
@@ -400,7 +430,10 @@ class GuiMain(QApplication):
         
         self.setWindowIcon(QIcon(settings.get_path('data', 'mainicon.png')))
         
-        self.window = GuiMainWindow()
+        self.window = GuiMainWindow(self.controler)
+        
+        # work - only on systems with support of this
+        #self.window.setWindowOpacity(0.5)
         
         self.central = QWidget()
         self.window.setCentralWidget(self.central)
@@ -438,6 +471,9 @@ class GuiMain(QApplication):
         #self.connect(self.slider,  SIGNAL('sliderReleased()'), self.gui_goto)
         #self.window.layout().addWidget(self.slider)
         
+        self.window.setAcceptDrops(True)
+        self.movie_window.setAcceptDrops(True)
+        
         self.window.resize(self.window.minimumSizeHint().expandedTo(QSize(600, 400)))
         self.window.show() 
         #self.window_base.show() 
@@ -464,6 +500,29 @@ class GuiMain(QApplication):
         self.entry.setText('')
        
         self.controlerdispatch(text)
+    
+    def do_resize_video_window(self, width, height):
+        #self.movie_window.resize(width, height)
+        #self.movie_window.setBaseSize(width, height)
+        
+        size = QSize(width, height)
+        
+        min_size = self.movie_window.minimumSize()
+        max_size = self.movie_window.maximumSize()
+        
+        self.movie_window.setMinimumSize(size)
+        self.movie_window.setMaximumSize(size)
+        
+        self.window.layout().update()
+        
+        #self.movie_window.setMinimumSize(min_size)
+        #self.movie_window.setMaximumSize(max_size)
+        
+        #self.movie_window.setMinimumSize(min_size)
+        
+        #self.movie_window.resize(width, height)
+        
+        #self.window.adjustSize()
     
     def do_get_fullscreen(self):
         return self.window.isFullScreen()

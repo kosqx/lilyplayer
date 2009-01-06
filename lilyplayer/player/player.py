@@ -31,9 +31,8 @@ import gobject
 
 from PyQt4.QtCore import QThread
 
-from lilyplayer.utils.utils import clamp
+from lilyplayer.utils.utils import clamp, Struct
 from lilyplayer.utils.play_time import Time
-
 
 
 
@@ -153,6 +152,7 @@ class GStreamerPlayer(Player):
         def __init__(self, window, player):
             QThread.__init__(self, window)
             self.player = player
+
             
         def run(self): 
             gobject.threads_init() 
@@ -222,6 +222,9 @@ class GStreamerPlayer(Player):
         self._snapshot_conventer = GStreamerPlayer.SnapshotPipeline()
         
         self._was_eos = False
+        
+        self.video = None
+        self.audio = None
         
         # works
         #print gst.xml_write(self._player)
@@ -350,34 +353,52 @@ class GStreamerPlayer(Player):
             self._player.set_state(gst.STATE_PLAYING)
         self._time_format = gst.Format(gst.FORMAT_TIME)
         
-        #print 'audio', self._player.props.current_audio
-        #print 'text ', self._player.props.current_text 
-        #print 'video', self._player.props.current_video
+        #msg = self._bus.poll(gst.MESSAGE_ASYNC_DONE, gst.SECOND * 3)
+        self._seek(0, wait=True)
         
-        #for i in self._player.props.stream_info_value_array:
-            #print 'nick   ', i.props.type.value_nick
-            #print 'codec  ', i.props.codec
-            #print 'decoder', i.props.language_code
-            #print 'lang   ', i.props.language_code
-            #print 'mute   ', i.props.mute
-            #print 'caps   ', i.props.caps.to_string()
+        self.video = Struct()
+        self.audio = Struct()
+        
+        if True:
+            print 'audio', self._player.props.current_audio
+            print 'text ', self._player.props.current_text 
+            print 'video', self._player.props.current_video
+            print
             
-        #caps = self._player.props.frame.get_caps()[0]
-        #for name in caps.keys():
-            #print name, caps[name]
-        
-        
-        #el = self._player.elements()
-        #try:
-            #while True:
-                #next = el.next()
-                #print 'str ', str(next)
-                #print 'name', next.props.name
-        #except StopIteration:
-            #pass
+            for i in self._player.props.stream_info_value_array:
+                print 'nick   ', i.props.type.value_nick
+                print 'codec  ', i.props.codec
+                print 'decoder', i.props.language_code
+                print 'lang   ', i.props.language_code
+                print 'mute   ', i.props.mute
+                print 'caps   ', i.props.caps.to_string()
+                print 
+            
+            def gst_framerate_to_float(framerate):
+                return float(framerate.num) / float(framerate.denom)
+            
+            caps = self._player.props.frame.get_caps()[0]
+            
+            for name in caps.keys():
+                print name, caps[name]
+            
+            self.video.width     = caps['width']
+            self.video.height    = caps['height']
+            self.video.framerate = gst_framerate_to_float(caps['framerate'])
+            self.video.fourcc    = caps['format'].fourcc
+            
+            el = self._player.elements()
+            try:
+                while True:
+                    next = el.next()
+                    print 'str < %r >   \tname <%r>' %  (str(next), next.props.name)
+            except StopIteration:
+                pass
         
     def _do_close(self):
         self._player.set_state(gst.STATE_NULL)
+        self.video = None
+        self.audio = None
         
     def _do_get_state(self):
         cases = {
