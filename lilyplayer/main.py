@@ -26,7 +26,7 @@ import os.path
 import time
 import random
 import platform
-
+import logging
 
 from gui.qt4 import GuiMain
 
@@ -432,6 +432,11 @@ class Controler(object):
         self.open_item(self.playlist.goto(index))
 
 def main():
+    logging.basicConfig(
+        level=logging.DEBUG, #logging.INFO,
+        format='%(asctime)s  %(levelname)-8s  %(module)-12s  %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
     controler = Controler() 
     controler.exec_()
 

@@ -412,7 +412,8 @@ class GuiThumbinalDialog(object):
             )
         else:
             return None
-        
+
+
 class ActionWrap(object):
     def __init__(self, fun, *args):
         self.fun = fun
@@ -451,8 +452,6 @@ class GuiMain(QApplication):
         self.entry.setVisible(False)
 
         self.movie_window = QWidget(self.window)
-        #self.movie_window.palette().background().setColor(Qt.blue)
-        #self.movie_window.setStyleSheet("background-color:black")
         self.movie_window.setAutoFillBackground(True)
         
         palette = self.movie_window.palette()
@@ -476,9 +475,6 @@ class GuiMain(QApplication):
         
         self.window.resize(self.window.minimumSizeHint().expandedTo(QSize(600, 400)))
         self.window.show() 
-        #self.window_base.show() 
-        
-        
 
         QTimer.singleShot(0, self.autoopen)
     
@@ -502,28 +498,13 @@ class GuiMain(QApplication):
         self.controlerdispatch(text)
     
     def do_resize_video_window(self, width, height):
-        #self.movie_window.resize(width, height)
-        #self.movie_window.setBaseSize(width, height)
+        request_size = QSize(width, height)
+        movie_size = self.movie_window.size()
+        window_size = self.window.size()
+        new_size = window_size + request_size - movie_size
         
-        size = QSize(width, height)
+        self.window.resize(new_size)
         
-        min_size = self.movie_window.minimumSize()
-        max_size = self.movie_window.maximumSize()
-        
-        self.movie_window.setMinimumSize(size)
-        self.movie_window.setMaximumSize(size)
-        
-        self.window.layout().update()
-        
-        #self.movie_window.setMinimumSize(min_size)
-        #self.movie_window.setMaximumSize(max_size)
-        
-        #self.movie_window.setMinimumSize(min_size)
-        
-        #self.movie_window.resize(width, height)
-        
-        #self.window.adjustSize()
-    
     def do_get_fullscreen(self):
         return self.window.isFullScreen()
 
