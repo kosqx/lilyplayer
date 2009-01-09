@@ -27,270 +27,13 @@ import os.path
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
+
 import lilyplayer.settings as settings
 import lilyplayer.utils.utils as utils
 
+from qt4_keys import key_event_to_str
+from qt4_controls import PlayControls
 
-class PlayControls(QWidget):
-    def __init__(self, parent, controler):
-        QWidget.__init__(self, parent)
-        
-        self.setAcceptDrops(True)
-        
-        self.controler = controler
-        self.actions = {}
-        
-        pos_data = utils.File(settings.get_path('data', 'controls.txt')).read()
-        
-        self._pos = {}
-        for line in pos_data.splitlines():
-            parts = line.split()
-            if parts and not parts[0].startswith('#'):
-                self._pos[parts[0]] = (int(parts[1]), int(parts[2]))
-        if '_' in self._pos:
-            self._pos[' '] = tuple(self._pos['_'])
-            
-        assert self._pos['['][1] == self._pos[']'][1]
-        assert self._pos['['][1] == self._pos['{'][1]
-        assert self._pos[']'][1] == self._pos['}'][1]
-        
-        self.setSizePolicy(QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed))
-        self._pixmap = QPixmap(settings.get_path('data', 'controls.png'))
-
-        
-    def _makeSpec(self, time, duration, position, volume, play='p', mute='m', full='f'):
-        def from_left(spec, left, c, name=None):
-            x, l = self._pos[c]
-            spec.append((left, l, x, l))
-            if name:
-                self.actions[name] = (left, left + l)
-            return left + l
-        
-        def from_right(spec, right, c, name=None):
-            x, l = self._pos[c]
-            spec.append((right - l, l, x, l))
-            if name:
-                self.actions[name] = (right - l, right)
-            return right - l
-        
-        def bar(spec, left, right, value, name=None):
-            ch_l = ['{', '['][int(value == 0.0)]
-            ch_r = [']', '}'][int(value == 1.0)]
-            ch_size = self._pos['['][1]
-            
-            left = from_left(spec, left, ch_l)
-            right = from_right(spec, right, ch_r)
-            if name:
-                self.actions[name] = (left, right)
-            
-            bar_size = right - left
-            done_size = int(value * bar_size + 0.5)
-            spec.append((left, done_size) + self._pos['$'])
-            spec.append((left + done_size, bar_size - done_size) + self._pos['='])
-            
-        spec = []
-        self.actions = {}
-        
-        left = 0
-        right = self.width()
-
-        left = from_left(spec, left, '(')
-        left = from_left(spec, left, play, name='play')
-        for c in (' ' + time):
-            left = from_left(spec, left, c)
-        
-        right = from_right(spec, right, ')')
-        right = from_right(spec, right, full, name='full')
-        right = from_right(spec, right, ' ')
-        
-        bar(spec,right - 50, right, volume, name='volume')
-        right -= 50
-        
-        right = from_right(spec, right, mute, name='mute')
-        for c in (duration + ' ')[::-1]:
-            right = from_right(spec, right, c)
-        
-        bar(spec,left, right, position, name='position')
-
-        return sorted(spec)
-        
-    def _drawSpec(self, painter, spec):
-        H = self._pixmap.height()
-        for draw_offset, draw_size, img_offset, img_size in spec:
-            painter.drawPixmap(
-                QRect(draw_offset, 0, draw_size, H),
-                self._pixmap,
-                QRect(img_offset, 0, img_size, H)
-            )
-            
-        
-        
-    def _command(self, name, x, size):
-        if self.controler is not None:
-            if name == 'mute':
-                self.controler.player.mute = None
-            elif name == 'play':
-                self.controler.player.toggle()
-            elif name == 'full':
-                self.controler.set_fullscreen()
-            elif name == 'volume':
-                self.controler.player.volume = 1.0 * x / (size - 1)
-            elif name == 'position':
-                self.controler.player.position_fraction = 1.0 * x / (size - 1)
-                
-            self.update()
-        
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            x = event.x()
-            for name in self.actions:
-                left, right = self.actions[name]
-                if left <= x < right:
-                    self._command(name, x - left, right - left)
-            
-            event.accept()
-        else:
-            QWidget.mousePressEvent(self, event)
-
-    def sizeHint(self):
-        return self.minimumSizeHint()
-
-    def minimumSizeHint(self):
-        return QSize(320, self._pixmap.height())
-    
-    def _redraw(self, controler):
-        self.controler = controler
-        self.update()
-    
-    def paintEvent(self, event=None):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        
-        d = dict(time='00:00:00', duration='00:00:00', position=0.0, volume=1.0, play='p', mute='m', full='f')
-        
-        if self.controler is None:
-            pass
-        else:
-            player = self.controler.player
-            d['time']     = str(player.position)
-            d['duration'] = str(player.duration)
-            d['position'] = player.position_fraction
-            d['volume']   = player.volume
-            d['play']     = 'pP'[player.state == 'play']
-            d['mute']     = 'mM'[player.mute]
-            d['full']     = 'fF'[self.controler.get_fullscreen()]
-
-        spec = self._makeSpec(**d)
-        self._drawSpec(painter, spec)
-
-def key_event_to_str(event):
-    mods = ''
-    
-    if event.modifiers() & Qt.AltModifier:
-        mods += 'Alt+'
-    if event.modifiers() & Qt.ControlModifier:
-        mods += 'Ctrl+'
-    if event.modifiers() & Qt.ShiftModifier:
-        mods += 'Shift+'
-    if event.modifiers() & Qt.MetaModifier:
-        mods += 'Meta+'
-    
-    keys = {
-        Qt.Key_Backspace: 'Backspace',
-        Qt.Key_Tab:       'Tab',
-        Qt.Key_Return:    'Enter',
-        Qt.Key_Escape:    'Esc',
-        Qt.Key_Space:     'Space',
-        
-        Qt.Key_CapsLock:  'CapsLock',
-        Qt.Key_NumLock:   'NumLock',
-        Qt.Key_ScrollLock:'ScrollLock',
-        
-        Qt.Key_Exclam:       'Exclam',       # !
-        Qt.Key_At:           'At',           # @
-        Qt.Key_NumberSign:   'Hash',         # #
-        Qt.Key_Dollar:       'Dollar',       # $
-        Qt.Key_Percent:      'Percent',      # %
-        Qt.Key_AsciiCircum:  'Caret',        # ^
-        Qt.Key_Ampersand:    'Ampersand',    # &
-        Qt.Key_Asterisk:     'Asterisk',     # *
-
-        Qt.Key_ParenLeft:    'ParenLeft',    # (
-        Qt.Key_ParenRight:   'ParenRight',   # )
-        Qt.Key_BracketLeft:  'BracketLeft',  # [
-        Qt.Key_BracketRight: 'BracketRight', # ]
-        Qt.Key_BraceLeft:    'BraceLeft',    # {
-        Qt.Key_BraceRight:   'BraceRight',   # }
-        Qt.Key_Less:         'Less',         # <
-        Qt.Key_Greater:      'Greater',      # >
-        
-        Qt.Key_AsciiTilde:   'Tilde',        # ~
-        Qt.Key_QuoteLeft:    'Grave',        # `
-        
-        Qt.Key_Underscore:   'Underscore',   # _
-        Qt.Key_Minus:        'Minus',        # -
-        
-        Qt.Key_Plus:         'Plus',         # +
-        Qt.Key_Equal:        'Equal',        # =
-        
-        Qt.Key_Bar:          'Pipe',          # |
-        Qt.Key_Backslash:    'Backslash',    # \
-        
-        Qt.Key_Colon:        'Colon',        # :
-        Qt.Key_Semicolon:    'Semicolon',    # ;
-        
-        Qt.Key_QuoteDbl:     'Quote',        # "
-        Qt.Key_Apostrophe:   'Apostrophe',   # '
-        
-        Qt.Key_Comma:        'Comma',        # ,
-        Qt.Key_Period:       'Dot',          # .
-        
-        Qt.Key_Question:     'Question',     # ?
-        Qt.Key_Slash:        'Slash',        # /
-        
-        Qt.Key_Insert:    'Insert',
-        Qt.Key_Delete:    'Delete',
-        Qt.Key_PageUp:    'PageUp',
-        Qt.Key_PageDown:  'PageDown',
-        Qt.Key_End:       'End',
-        Qt.Key_Home:      'Home',
-        
-        Qt.Key_Left:      'Left',
-        Qt.Key_Up:        'Up',
-        Qt.Key_Right:     'Right',
-        Qt.Key_Down:      'Down',
-        
-        Qt.Key_F1:        'F1',
-        Qt.Key_F2:        'F2',
-        Qt.Key_F3:        'F3',
-        Qt.Key_F4:        'F4',
-        Qt.Key_F5:        'F5',
-        Qt.Key_F6:        'F6',
-        Qt.Key_F7:        'F7',
-        Qt.Key_F8:        'F8',
-        Qt.Key_F9:        'F9',
-        Qt.Key_F10:       'F10',
-        Qt.Key_F11:       'F11',
-        Qt.Key_F12:       'F12',
-    }
-    
-    ekey = event.key()
-    key = None
-    
-    if ekey in keys:
-        key = keys[ekey]
-    elif ord('a') <= ekey <= ord('z'):
-        key = chr(ekey).upper()
-    elif ord('A') <= ekey <= ord('Z'):
-        key = chr(ekey).upper()
-    elif ord('0') <= ekey <= ord('9'):
-        key = chr(ekey)
-    
-    #print mods, key
-    if key is not None:
-        return mods + key
-    else:
-        return None
 
 class GuiMainWindow(QMainWindow):
     def __init__(self, controler):
@@ -413,14 +156,126 @@ class GuiThumbinalDialog(object):
         else:
             return None
 
+class PlaylistModel(QAbstractTableModel):
 
-class ActionWrap(object):
-    def __init__(self, fun, *args):
-        self.fun = fun
-        self.args = args
-        pass
-    def __call__(self, *other):
-        self.fun(*(self.args + other))
+    def __init__(self, controler):
+        super(PlaylistModel, self).__init__()
+        self.controler = controler
+        self.playlist = controler.playlist
+        self.dirty = False
+        self.columns = {
+            'name': 0,
+            'filename': 1,
+        }
+
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid() or not (0 <= index.row() < len(self.playlist)):
+            return QVariant()
+        
+        item = self.playlist[index.row()]
+        
+        print 'item', item
+        
+        column = index.column()
+        
+        if role == Qt.DisplayRole:
+            if column == 0:
+                return QVariant(item.name)
+            elif column == 1:
+                return QVariant(item.filename)
+            #elif column == TEU:
+                #return QVariant(QString("%L1").arg(ship.teu))
+                
+        elif role == Qt.TextAlignmentRole:
+            #if column == TEU:
+                #return QVariant(int(Qt.AlignRight|Qt.AlignVCenter))
+            return QVariant(int(Qt.AlignLeft|Qt.AlignVCenter))
+        
+        elif role == Qt.TextColorRole:
+            return QVariant(QColor(Qt.black))
+            #if ship.teu < 80000:
+                #return QVariant(QColor(Qt.black))
+            #elif ship.teu < 100000:
+                #return QVariant(QColor(Qt.darkBlue))
+            #elif ship.teu < 120000:
+                #return QVariant(QColor(Qt.blue))
+            #else:
+                #return QVariant(QColor(Qt.red))
+        elif role == Qt.BackgroundColorRole:
+            if self.playlist.current == index.row():
+                return QVariant(QColor(250, 230, 250))
+            #if ship.country in (u"Bahamas", u"Cyprus", u"Denmark",
+                    #u"France", u"Germany", u"Greece"):
+                #return QVariant(QColor(250, 230, 250))
+            #elif ship.country in (u"Hong Kong", u"Japan", u"Taiwan"):
+                #return QVariant(QColor(250, 250, 230))
+            #elif ship.country in (u"Marshall Islands",):
+                #return QVariant(QColor(230, 250, 250))
+            #else:
+                #return QVariant(QColor(210, 230, 230))
+            return QVariant(QColor(210, 230, 230))
+        return QVariant()
+
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if role == Qt.TextAlignmentRole:
+            if orientation == Qt.Horizontal:
+                return QVariant(int(Qt.AlignLeft|Qt.AlignVCenter))
+            return QVariant(int(Qt.AlignRight|Qt.AlignVCenter))
+        if role != Qt.DisplayRole:
+            return QVariant()
+        if orientation == Qt.Horizontal:
+            if section == 0:
+                return QVariant("Name")
+            elif section == 1:
+                return QVariant("Filename")
+           
+        return QVariant(int(section + 1))
+
+
+    def rowCount(self, index=QModelIndex()):
+        return len(self.playlist.items)
+
+
+    def columnCount(self, index=QModelIndex()):
+        return 2
+    
+    def signal_doubleClicked(self, index):
+        self.controler.playlist_goto(index.row())
+
+
+
+class GuiSidebar(QTabWidget):
+    
+    
+    def __init__(self, parent, controler):
+        QTabWidget.__init__(self, parent)
+        
+
+        #self.tab_meta = QTextBrowser(self)
+        self.tab_meta = QTextEdit(self)
+        self.tab_meta.setReadOnly(True)
+        self.tab_meta.setHtml("<h1>Metadata</h1>")
+        
+        #self.tab_list = QListWidget(self)
+        #self.tab_list.addItem('1')
+        #self.tab_list.addItem('2')
+        #self.tab_list.addItem('3')
+        
+        self.list_model = PlaylistModel(controler)
+        self.tab_list = QTableView()
+        self.tab_list.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.connect(self.tab_list, SIGNAL("doubleClicked(QModelIndex)"), self.list_model.signal_doubleClicked)
+        self.tab_list.setModel(self.list_model)
+        
+
+        #self.addTab(QLabel("Here will  be info about movie from IBDb"), "Info")
+        self.addTab(self.tab_meta, "Meta")
+        self.addTab(self.tab_list, "List")
+        # self.addTab(QLabel("Subtitle download and select"), "Subs")
+        # self.addTab(QLabel("Common settings"), "Settings")
+        self.setFixedWidth(220)
 
 class GuiMain(QApplication):
     def __init__(self, controler=None): 
@@ -451,6 +306,8 @@ class GuiMain(QApplication):
         self.connect(self.entry, SIGNAL("returnPressed()"), self.run)
         self.entry.setVisible(False)
 
+        
+
         self.movie_window = QWidget(self.window)
         self.movie_window.setAutoFillBackground(True)
         
@@ -460,7 +317,23 @@ class GuiMain(QApplication):
         
         self.movie_window.setPalette(palette)
         
-        self.central.layout().addWidget(self.movie_window)
+        #self.central.layout().addWidget(self.movie_window)
+        
+        #self.tab = QTabWidget()
+        #self.tab.addTab(QLabel("Here will  be info about movie from IBDb"), "Info")
+        #self.tab.addTab(QLabel("Metadata - video width, height; file size, etc"), "Meta")
+        #self.tab.addTab(QLabel("Playlist"), "List")
+        #self.tab.addTab(QLabel("Subtitle download and select"), "Subs")
+        #self.tab.addTab(QLabel("Common settings"), "Settings")
+        #self.tab.setFixedWidth(220)
+        
+        self.sidebar = GuiSidebar(self.window, controler)
+        
+        self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.addWidget(self.movie_window)
+        self.splitter.addWidget(self.sidebar)
+        
+        self.central.layout().addWidget(self.splitter)
         
         self.controls = PlayControls(self.window, self.controler)
         self.central.layout().addWidget(self.controls)
@@ -580,7 +453,7 @@ class GuiMain(QApplication):
                     add(menu, item.submenu)
                 elif item.is_item():
                     action = root.addAction(item.text)
-                    self.connect(action, SIGNAL("triggered()"), ActionWrap(self.on_menu_item, item.cmd))
+                    self.connect(action, SIGNAL("triggered()"), utils.FunctionWithParams(self.on_menu_item, item.cmd))
         
         menu_bar = self.window.menuBar()
         menu_bar.clear()

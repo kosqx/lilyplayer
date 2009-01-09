@@ -193,6 +193,7 @@ class Controler(object):
     def __init__(self):
         pass
         #self.player = Player.create('gstreamer', self, self.movie_window.winId())
+        self.playlist = Playlist(sys.argv[1:])
         self.gui = GuiMain(self)
         self.player = Player.create('gstreamer', self.gui, self.gui.movie_window.winId())
         settings.get_path('data', 'mainicon.png')
@@ -213,7 +214,7 @@ class Controler(object):
             self.dispatch(msg)
 
     def on_start(self):
-        self.playlist = Playlist(sys.argv[1:])
+        #self.playlist = Playlist(sys.argv[1:])
         
         self.open_item(self.playlist.next())
         self.gui.update_menu(self.main_menu)
@@ -272,6 +273,9 @@ class Controler(object):
             value = not self.gui.do_get_fullscreen()
         
         self.gui.do_set_fullscreen(value)
+
+    def playlist_goto(self, index):
+        self.open_item(self.playlist.goto(index))
 
     def thumbinals(self, cols, rows, size, margin):
         count = rows * cols
@@ -429,7 +433,8 @@ class Controler(object):
         
     @args(arguments_table, 'playlist-goto', IntArg(0))
     def cmd_playlist_goto(self, index):
-        self.open_item(self.playlist.goto(index))
+        #self.open_item(self.playlist.goto(index))
+        self.playlist_goto(index)
 
 def main():
     logging.basicConfig(

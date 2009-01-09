@@ -51,6 +51,14 @@ def at_index_or(vector, index, default=None):
         return default
 
 
+class FunctionWithParams(object):
+    def __init__(self, fun, *args):
+        self.fun = fun
+        self.args = args
+
+    def __call__(self, *other):
+        self.fun(*(self.args + other))
+
 class File(object):
     def __init__(self, path):
         if isinstance(path, basestring):

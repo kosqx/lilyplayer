@@ -39,6 +39,23 @@ class Playlist(object):
         self.current = None
         self.mode = 'default'
     
+    
+    def __len__(self):
+        return len(self.items)
+    
+    def __getitem__(self, key):
+        print 'getitem[%r]' % key
+        return self.items[key]
+    
+    def __setitem__(self, key, value):
+        self.items[key] = value
+    
+    def __delitem__(self, key):
+        if key > self.current:
+            self.current -= 1
+        del self.items[key]
+
+    
     def get(self):
         if self.current is not None and 0 <= self.current < len(self.items):
             return self.items[self.current]
