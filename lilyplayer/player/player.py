@@ -161,14 +161,22 @@ class GStreamerPlayer(Player):
             bus.enable_sync_message_emission() 
             bus.connect('message', self.on_message) 
             bus.connect('sync-message::element', self.on_sync_message)
+            #bus.connect('notify::source', self.on_notify)
+            bus.connect('notify', self.on_notify)
             
             self.player._bus = bus
             
-        def on_message(self, bus, message): 
+        def on_message(self, bus, message):
             self.player._cb_message(bus, message)
 
-        def on_sync_message(self, bus, message): 
+        def on_sync_message(self, bus, message):
             self.player._cb_sync_message(bus, message)
+            
+        def on_notify(self, *a):
+            pass
+            print 'on_notify --'
+            print a
+            #self.player._cb_sync_message(bus, message)
 
     class SnapshotPipeline:
         def __init__(self):
@@ -215,6 +223,7 @@ class GStreamerPlayer(Player):
         self._time_format = gst.Format(gst.FORMAT_TIME)
         
         self._player = gst.element_factory_make("playbin", "player")
+        #self._player = gst.element_factory_make("playbin2", "player")
         self._xid = xid
         self._thread = GStreamerPlayer.SignalThread(window, self)
         self._thread.start()
@@ -284,6 +293,11 @@ class GStreamerPlayer(Player):
         elif t == gst.MESSAGE_ERROR:
             self._was_eos = True
             self._player.set_state(gst.STATE_NULL)
+            
+            err, debug = message.parse_error()
+            print str(err).decode("utf8", 'replace')
+
+            
         elif t == gst.MESSAGE_TAG:
             pass
             #print 'MESSAGE_TAG', '-' * 100
@@ -359,6 +373,14 @@ class GStreamerPlayer(Player):
         self.video = Struct()
         self.audio = Struct()
         
+        #self._player.props.current_text = 0
+        #self._player.set_property('current_video', -1)
+        #self._player.set_property('current_audio', 1)
+        
+        self._player.set_property('suburi', '/home/kosqx/asdf.srt')
+        self._player.set_property('subtitle-font-desc', 'Sans Bold 24')
+        self._player.set_property('subtitle_encoding', 'utf-8')
+        
         if True:
             print 'audio', self._player.props.current_audio
             print 'text ', self._player.props.current_text 
@@ -377,15 +399,31 @@ class GStreamerPlayer(Player):
             def gst_framerate_to_float(framerate):
                 return float(framerate.num) / float(framerate.denom)
             
-            caps = self._player.props.frame.get_caps()[0]
+            #print dir(self._player.props)
             
-            for name in caps.keys():
-                print name, caps[name]
-            
-            self.video.width     = caps['width']
-            self.video.height    = caps['height']
-            self.video.framerate = gst_framerate_to_float(caps['framerate'])
-            self.video.fourcc    = caps['format'].fourcc
+            if hasattr(self._player.props, 'frame'):
+                """ there is video """
+                caps = self._player.props.frame.get_caps()[0]
+                
+                for name in caps.keys():
+                    print name, caps[name]
+                
+                self.video.width     = caps['width']
+                self.video.height    = caps['height']
+                self.video.framerate = gst_framerate_to_float(caps['framerate'])
+                self.video.fourcc    = caps['format'].fourcc
+            else:
+                """ no video """
+                r = gst.registry_get_default()
+                l = [x for x in r.get_feature_list(gst.ElementFactory) if (gst.ElementFactory.get_klass(x) == "Visualization")]
+                for v in l:
+                    print v.get_name()
+                #e = [y for y in l if (y.get_name() == self.visualization_name)] 
+                e = l
+                if e:
+                    visplug = gst.element_factory_make(e[0].get_name())
+                    print e, visplug
+                    self._player.set_property('vis-plugin', visplug)
             
             el = self._player.elements()
             try:
@@ -440,3 +478,12 @@ class GStreamerPlayer(Player):
         volume = clamp(volume * 1.0, 0.0, 1.0)
         self._player.set_property('volume', volume)
 
+
+
+# TODO
+"""
+gst.element_make_from_uri(gst.URI_SRC, "smb://", "")
+
+from gst.extend.discoverer import Discoverer
+
+"""

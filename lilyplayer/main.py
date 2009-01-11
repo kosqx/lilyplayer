@@ -53,6 +53,33 @@ def prefix_value_change(prop, prefix, value):
     else:
         return value
 
+
+class Signal(object):
+    def __init__(self):
+        self.signals = {}
+        
+    def emit(self, name, *params):
+        print '-' * 100
+        print self.signals
+        print '-' * 100
+        parts = name.split('-')
+        for i in xrange(len(parts) + 1, 0, -1):
+            nm = '-'.join(parts[:i])
+            print nm
+            for fun, args in self.signals.get(nm, []):
+                print 'send to %r' % fun, args, params, args + params
+                fun(args, *list(args + params))
+    
+    def connect(self, name, fun, *args):
+        if name in self.signals:
+            self.signals[name].append((fun, args))
+        else:
+            self.signals[name] = [(fun, args)]
+    
+    def disconnect(self, name, fun):
+        pass
+
+
 class MenuItem(object):
     @staticmethod
     def text_to_name(text):
@@ -194,6 +221,7 @@ class Controler(object):
         pass
         #self.player = Player.create('gstreamer', self, self.movie_window.winId())
         self.playlist = Playlist(sys.argv[1:])
+        self.signal = Signal()
         self.gui = GuiMain(self)
         self.player = Player.create('gstreamer', self.gui, self.gui.movie_window.winId())
         settings.get_path('data', 'mainicon.png')
@@ -221,8 +249,9 @@ class Controler(object):
 
     def on_timer(self):
         if self.player.state == 'finish':
-            next = self.playlist.next()
-            self.open_item(next)
+            self.playlist_next()
+            #next = self.playlist.next()
+            #self.open_item(next)
         #self.slider.setValue(int(self.player.position_fraction * 1000))
         self.gui.controls._redraw(self)
 
@@ -239,6 +268,8 @@ class Controler(object):
             filename = filename[7:]
         item = self.playlist.append_and_goto(filename)
         self.open_item(item)
+        self.signal.emit('playlist-append')
+        print 'controler id', id(self.playlist)
 
     def open_item(self, item):
         if item:
@@ -265,6 +296,10 @@ class Controler(object):
         libs.extend(self.player.versions())
         self.gui.do_about(authors=[__author__], version=__version__, libs=libs)
 
+    def exit(self):
+        self.player.close()
+        exit()
+
     def get_fullscreen(self):
         return self.gui.do_get_fullscreen()
     
@@ -276,6 +311,11 @@ class Controler(object):
 
     def playlist_goto(self, index):
         self.open_item(self.playlist.goto(index))
+        self.signal.emit('playlist-goto')
+    
+    def playlist_next(self):
+        self.open_item(self.playlist.next())
+        self.signal.emit('playlist-next')
 
     def thumbinals(self, cols, rows, size, margin):
         count = rows * cols
@@ -332,8 +372,8 @@ class Controler(object):
 
     @args(arguments_table, 'exit')
     def cmd_exit(self):
-        # TODO: make this better
-        exit()
+        self.exit()
+
 
     @args(arguments_table, 'about')
     def cmd_about(self):

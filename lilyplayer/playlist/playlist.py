@@ -26,16 +26,24 @@ import random
 
 class PlaylistItem(object):
     def __init__(self, filename, name=None):
-        self.filename = os.path.abspath(filename)
+        if filename.startswith(('file://', 'dvd://')):
+            self.filename = filename
+        else:
+            self.filename = os.path.abspath(filename)
         if name:
             self.name = name
         else:
             self.name = os.path.split(filename)[-1]
 
+    def __repr__(self):
+        return 'PlaylistItem(%r)' % self.filename
 
 class Playlist(object):
     def __init__(self, items):
-        self.items = [PlaylistItem(i) for i in items]
+        #self.items = [PlaylistItem(i) for i in items]
+        self.items = []
+        for item in items:
+            self.append(item)
         self.current = None
         self.mode = 'default'
     
@@ -44,7 +52,6 @@ class Playlist(object):
         return len(self.items)
     
     def __getitem__(self, key):
-        print 'getitem[%r]' % key
         return self.items[key]
     
     def __setitem__(self, key, value):

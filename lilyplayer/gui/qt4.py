@@ -33,11 +33,13 @@ import lilyplayer.utils.utils as utils
 
 from qt4_keys import key_event_to_str
 from qt4_controls import PlayControls
+from qt4_markup import GuiMarkupWindow
 
 
 class GuiMainWindow(QMainWindow):
     def __init__(self, controler):
         QMainWindow.__init__(self)
+        self.setMouseTracking(True)
         self.controler = controler
     
     def keyPressEvent(self, event):
@@ -80,6 +82,10 @@ class GuiMainWindow(QMainWindow):
         event.accept()
         print 'context', event.globalPos()
 
+
+    def mouseMoveEvent(self, event):
+        print event.x(), event.y()
+        pass
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -162,6 +168,7 @@ class PlaylistModel(QAbstractTableModel):
         super(PlaylistModel, self).__init__()
         self.controler = controler
         self.playlist = controler.playlist
+        print 'PlaylistModel id', id(self.playlist)
         self.dirty = False
         self.columns = {
             'name': 0,
@@ -170,12 +177,13 @@ class PlaylistModel(QAbstractTableModel):
 
 
     def data(self, index, role=Qt.DisplayRole):
+        #print self.playlist.items
+        
         if not index.isValid() or not (0 <= index.row() < len(self.playlist)):
             return QVariant()
         
         item = self.playlist[index.row()]
         
-        print 'item', item
         
         column = index.column()
         
@@ -194,26 +202,9 @@ class PlaylistModel(QAbstractTableModel):
         
         elif role == Qt.TextColorRole:
             return QVariant(QColor(Qt.black))
-            #if ship.teu < 80000:
-                #return QVariant(QColor(Qt.black))
-            #elif ship.teu < 100000:
-                #return QVariant(QColor(Qt.darkBlue))
-            #elif ship.teu < 120000:
-                #return QVariant(QColor(Qt.blue))
-            #else:
-                #return QVariant(QColor(Qt.red))
         elif role == Qt.BackgroundColorRole:
             if self.playlist.current == index.row():
                 return QVariant(QColor(250, 230, 250))
-            #if ship.country in (u"Bahamas", u"Cyprus", u"Denmark",
-                    #u"France", u"Germany", u"Greece"):
-                #return QVariant(QColor(250, 230, 250))
-            #elif ship.country in (u"Hong Kong", u"Japan", u"Taiwan"):
-                #return QVariant(QColor(250, 250, 230))
-            #elif ship.country in (u"Marshall Islands",):
-                #return QVariant(QColor(230, 250, 250))
-            #else:
-                #return QVariant(QColor(210, 230, 230))
             return QVariant(QColor(210, 230, 230))
         return QVariant()
 
@@ -235,7 +226,8 @@ class PlaylistModel(QAbstractTableModel):
 
 
     def rowCount(self, index=QModelIndex()):
-        return len(self.playlist.items)
+        print len(self.playlist)
+        return len(self.playlist)
 
 
     def columnCount(self, index=QModelIndex()):
@@ -247,27 +239,37 @@ class PlaylistModel(QAbstractTableModel):
 
 
 class GuiSidebar(QTabWidget):
-    
+    def playlist_update(self, *a):
+        print 'playlist update ' * 20, a
+        #self.tab_list.update(self.tab_list.rect())
+        #self.tab_list.setDirtyRegion(QRegion(self.tab_list.rect()))
+        
+        
+        self.tab_list.setModel(None)
+        self.tab_list.setModel(self.list_model)
+        #selectRow
+        #.showRow
+        
     
     def __init__(self, parent, controler):
         QTabWidget.__init__(self, parent)
         
+        self.controler = controler
 
         #self.tab_meta = QTextBrowser(self)
         self.tab_meta = QTextEdit(self)
         self.tab_meta.setReadOnly(True)
         self.tab_meta.setHtml("<h1>Metadata</h1>")
         
-        #self.tab_list = QListWidget(self)
-        #self.tab_list.addItem('1')
-        #self.tab_list.addItem('2')
-        #self.tab_list.addItem('3')
-        
+       
         self.list_model = PlaylistModel(controler)
         self.tab_list = QTableView()
         self.tab_list.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.tab_list.setGridStyle(Qt.NoPen)
         self.connect(self.tab_list, SIGNAL("doubleClicked(QModelIndex)"), self.list_model.signal_doubleClicked)
         self.tab_list.setModel(self.list_model)
+        
+        self.controler.signal.connect('playlist', self.playlist_update)
         
 
         #self.addTab(QLabel("Here will  be info about movie from IBDb"), "Info")
@@ -283,6 +285,8 @@ class GuiMain(QApplication):
         
         #self.controler = Controler()
         self.controler = controler
+        
+        
         
         self.setWindowIcon(QIcon(settings.get_path('data', 'mainicon.png')))
         
@@ -309,13 +313,23 @@ class GuiMain(QApplication):
         
 
         self.movie_window = QWidget(self.window)
+        self.movie_window.setMouseTracking(True)
         self.movie_window.setAutoFillBackground(True)
+        
         
         palette = self.movie_window.palette()
         palette.setColor(QPalette.Active, QPalette.Window, QColor(0, 0, 0))
         palette.setColor(QPalette.Inactive, QPalette.Window, QColor(0, 0, 0))
         
         self.movie_window.setPalette(palette)
+        
+        self.markup_window = GuiMarkupWindow(self.movie_window)
+        self.markup_window.set_style({'font-size': 32, 'border-width': 1})
+        self.markup_window.show()
+        #self.markup_window.render('Ala ma kota<br/>i psa', {'font-size': '32'})
+        #self.markup_window.setParent(self.movie_window, Qt.Tool)
+        self.markup_window.show()
+        
         
         #self.central.layout().addWidget(self.movie_window)
         
@@ -350,6 +364,10 @@ class GuiMain(QApplication):
         self.window.show() 
 
         QTimer.singleShot(0, self.autoopen)
+        
+        self.markup_timer = QTimer()
+        self.markup_timer.start(200)
+        QObject.connect(self.markup_timer, SIGNAL("timeout()"), self.on_markup_timer) 
     
     def key(self, keys):
         self.controler.keyboard_shortcut(str(keys))
@@ -363,6 +381,16 @@ class GuiMain(QApplication):
     
     def on_timer(self):
         self.controler.on_timer()
+        
+    def on_markup_timer(self):
+        pass
+        import time
+        #print self.movie_window.height(), self.markup_window.height()
+        self.markup_window.set_text('%s' % time.strftime('%H:%M:%S'))
+        x = self.movie_window.width() - self.markup_window.width()
+        y = self.movie_window.height() - self.markup_window.height()
+        point = self.movie_window.mapToGlobal(QPoint(x/2, y))
+        self.markup_window.move(point)
         
     def run(self):
         text = str(self.entry.text())
@@ -384,6 +412,7 @@ class GuiMain(QApplication):
     def do_set_fullscreen(self, value):
         #self.entry.setVisible(not value)
         self.window.menuBar().setVisible(not value)
+        self.sidebar.setVisible(not value)
         
         if value:
             self.window.showFullScreen()
