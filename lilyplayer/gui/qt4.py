@@ -386,7 +386,10 @@ class GuiMain(QApplication):
         pass
         import time
         #print self.movie_window.height(), self.markup_window.height()
-        self.markup_window.set_text('%s' % time.strftime('%H:%M:%S'))
+        
+        #self.markup_window.set_text('%s' % time.strftime('%H:%M:%S'))
+        self.markup_window.set_text(self.controler.get_current_subtitle())
+        
         x = self.movie_window.width() - self.markup_window.width()
         y = self.movie_window.height() - self.markup_window.height()
         point = self.movie_window.mapToGlobal(QPoint(x/2, y))

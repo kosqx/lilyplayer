@@ -35,6 +35,7 @@ from utils.play_time import Time
 from player.player import Player
 from utils.arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
 from playlist.playlist import Playlist, PlaylistItem
+from subtitles.subtitles import Subtitles
 
 import utils.compose_thumbs as compose_thumbs
 import settings
@@ -50,6 +51,10 @@ def prefix_value_change(prop, prefix, value):
         return prop + value
     elif prefix == '-':
         return prop - value
+    elif prefix == '*':
+        return prop * value
+    elif prefix == '/':
+        return prop / value
     else:
         return value
 
@@ -120,71 +125,6 @@ class MenuItem(object):
 
 class Controler(object):
     arguments_table = []
-        
-    #main_menu = [
-        #('File', [
-            #'Open',
-            #'Close',
-            #None,
-            #'Exit',
-            #]),
-        #('View', [
-            #'Main Menu',
-            #'Controls',
-            #'Sidebar',
-            #'Playlist',
-            #'Logs',
-            #None,
-            #'Configuration',
-            #]),
-        #('Playback', [
-            #'Play',
-            #'Pause',
-            #'Stop',
-            #None,
-            #'Goto',
-            #None,
-            #('Speed', [
-                    #'25%', '50%', '100%', '200%', '400%',
-                #])
-            #]),
-        #('Video', [
-            #('Track', [
-                #'Off',
-                #None,
-                #]),
-            #('Aspect ratio', [
-                #'Fill', 'Default', None,
-                #'5:4', '4:3', '16:10', '16:9',
-                #]),
-            #]),
-        #('Audio', [
-            #('Track', [
-                #'Off',
-                #None,
-                #]),
-            #('Balance', [
-                #'Central', None,
-                #'Move left', 'Move right',
-                #]),
-            #None,
-            #'Mute',
-            #'Volume Down',
-            #'Volume Up',
-            
-            #]),
-        #('Tools', [
-            #'Snapshot',
-            #'Thumbinals',
-            #None,
-            #'Subtitle download',
-            #]),
-        #('Help', [
-            #'Help',
-            #None,
-            #'About',
-            #]),
-    #]
     
     main_menu = MenuItem('', submenu=[
         MenuItem('File', submenu=[
@@ -208,6 +148,20 @@ class Controler(object):
                 MenuItem('400%', cmd='speed 25%'),
             ]),
         ]),
+        MenuItem('Video', submenu=[
+            MenuItem('Video scale', submenu=[
+                MenuItem('50%',  cmd='video-scale 50%'),
+                MenuItem('75%',  cmd='video-scale 75%'),
+                MenuItem('100%', cmd='video-scale 100%'),
+                MenuItem('150%', cmd='video-scale 150%'),
+                MenuItem('200%', cmd='video-scale 200%'),
+            ]),
+        ]),
+        MenuItem('Audio', submenu=[
+            MenuItem('Mute', cmd='mute'),
+            MenuItem('Volume Down', cmd='volume -10%'),
+            MenuItem('Volume Up', cmd='volume +10%'),
+        ]),
         MenuItem('Tools', submenu=[
             MenuItem('Snapshot', cmd='snap'),
             MenuItem('Thumbinals', cmd='thumbdlg'),
@@ -218,11 +172,11 @@ class Controler(object):
     ])
 
     def __init__(self):
-        pass
-        #self.player = Player.create('gstreamer', self, self.movie_window.winId())
         self.playlist = Playlist(sys.argv[1:])
+        self.subtitles = Subtitles()
         self.signal = Signal()
         self.gui = GuiMain(self)
+        self.gui.update_menu(self.main_menu)
         self.player = Player.create('gstreamer', self.gui, self.gui.movie_window.winId())
         settings.get_path('data', 'mainicon.png')
     
@@ -245,7 +199,7 @@ class Controler(object):
         #self.playlist = Playlist(sys.argv[1:])
         
         self.open_item(self.playlist.next())
-        self.gui.update_menu(self.main_menu)
+        
 
     def on_timer(self):
         if self.player.state == 'finish':
@@ -274,12 +228,32 @@ class Controler(object):
     def open_item(self, item):
         if item:
             self.player.stop()
-            self.gui.window.setWindowTitle("%s Lily Player:"  % item.name)
+            
+            self.gui.window.setWindowTitle("%s - Lily Player"  % item.name)
+            logging.info("Media file opening: %r" % item.filename)
             self.player.open(item.filename)
+            logging.info("Media file opened")
+            self.video_scale(1.0)
+            if False:
+                try:
+                    subname = item.filename.rsplit('.', 1)[0] + '.txt'
+                    self.subtitles.load(subname, encoding='cp1250')
+                    self.subtitles.adjust_fps(self.player.video.framerate)
+                    self.subtitles.adjust_time(perchar=Time(s=0.01), minimum=Time(s=2))
+                except Exception, e:
+                    print e
+                
             self.player.play()
         else:
             self.gui.window.setWindowTitle("Lily Player")
             self.player.stop()
+
+    def get_current_subtitle(self):
+        verses = self.subtitles.at(self.player.position)
+        if verses:
+            print verses
+        text = (u'<br/>'.join(i.text for i in verses)).replace(u'\n', u'<br/>')
+        return text.encode('ascii', 'xmlcharrefreplace')
 
     def goto_dlg(self):
         time = self.gui.do_input_dlg('Run command', 'Enter command', str(self.player.position))
@@ -356,34 +330,38 @@ class Controler(object):
             s = struct
             self.thumbinals(s.cols, s.rows, s.size, s.margin)
             
-    @args(arguments_table, 'video-scale', FloatArg(0.2, 5.0))
-    def cmd_video_size(self, scale):
+    def video_scale(self, scale=1.0):
+        if self.get_fullscreen():
+            logging.info("Try 'video_scale' - in fullscreen mode")
+            return
         if self.player.video is not None:
             w = scale * self.player.video.width
             h = scale * self.player.video.height
             self.gui.do_resize_video_window(w, h)
         else:
-            pass
-            #self.log("WARN", "Can not 'video-scale' - video size unknown")
-
+            logging.warn("Try 'video_scale' - video size unknown")
+    
+    @args(arguments_table, 'video-scale', FloatArg(0.2, 5.0))
+    def cmd_video_size(self, scale):
+        self.video_scale(scale)
+    
     @args(arguments_table, 'thumbdlg')
     def cmd_thumb_dlg(self):
         self.thumbinals_dialog()
-
+    
     @args(arguments_table, 'exit')
     def cmd_exit(self):
         self.exit()
-
-
+    
     @args(arguments_table, 'about')
     def cmd_about(self):
         self.about()
-
+    
     @args(arguments_table, 'cmddlg')
     def cmd_cmddlg(self):
         cmd = self.gui.do_input_dlg('Run command', 'Enter command')
         self.dispatch(cmd)
-        
+    
     @args(arguments_table, 'gotodlg')
     def cmd_gotodlg(self):
         self.goto_dlg()
@@ -391,24 +369,19 @@ class Controler(object):
     @args(arguments_table, 'open', StrArg())
     def cmd_open(self, url):
         self.open(url)
-        
+    
     @args(arguments_table, 'opendlg')
     def cmd_opendlg(self):
         self.open_dlg()
-        #filename = QFileDialog.getOpenFileName(self.window, 'Open file', '/home/kosqx')
-        #print filename
-        #if filename:
-            #self.player.open(str(filename))
     
     @args(arguments_table, 'close')
     def cmd_close(self):
         self.player.close()
     
-
     @args(arguments_table, 'speed', PrefixArg(['+', '-', '=', '']), FloatArg(0.25, 4.0))
     def cmd_speed(self, prefix, value):
         self.player.speed = prefix_value_change(self.player.speed, prefix, value)
-        
+    
     @args(arguments_table, 'goto', PrefixArg(['+', '-', '=', '']), FloatArg(0.0, 1.0))
     def cmd_goto_pos(self, prefix, value):
         self.player.position_fraction = prefix_value_change(self.player.position_fraction, prefix, value)
@@ -420,7 +393,7 @@ class Controler(object):
     @args(arguments_table, 'volume', PrefixArg(['+', '-', '=', '']), FloatArg(0.0, 1.0))
     def cmd_volume(self, prefix, value):
         self.player.volume = prefix_value_change(self.player.volume, prefix, value)
-        
+    
     @args(arguments_table, 'mute')
     def cmd_mute(self):
         self.player.mute = None
@@ -432,11 +405,11 @@ class Controler(object):
         fo = open(filename, 'wb')
         fo.write(data)
         fo.close()
-
+    
     @args(arguments_table, 'thumb', IntArg(1, 10), IntArg(1, 100))
     def cmd_thumb(self, rows, cols):
         self.thumbinals(rows, cols, 200, 10)
-
+    
     @args(arguments_table, 'play')
     def cmd_play(self):
         self.player.play()
@@ -448,32 +421,30 @@ class Controler(object):
     @args(arguments_table, 'stop')
     def cmd_stop(self):
         self.player.stop()
-        
+    
     @args(arguments_table, 'toggle')
     def cmd_toggle(self):
         self.player.toggle()
-        
+    
     @args(arguments_table, 'fullscreen', EnumArg({'on': True, 'off': False}))
     def cmd_fullscreen_enum(self, enum):
         self.set_fullscreen(enum)
-
+    
     @args(arguments_table, 'fullscreen')
     def cmd_fullscreen(self):
         self.set_fullscreen(None)
-
-
+    
     @args(arguments_table, 'playlist-next')
     def cmd_playlist_next(self):
         print 'playlist next'
         self.open_item(self.playlist.next())
-        
+    
     @args(arguments_table, 'playlist-mode', EnumArg(['repeat-one', 'repeat', 'shuffle', 'default']))
     def cmd_playlist_mode(self, mode):
         self.playlist.mode = mode
-        
+    
     @args(arguments_table, 'playlist-goto', IntArg(0))
     def cmd_playlist_goto(self, index):
-        #self.open_item(self.playlist.goto(index))
         self.playlist_goto(index)
 
 def main():

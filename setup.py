@@ -18,7 +18,7 @@ setup(
         'lilyplayer',
         'lilyplayer.gui',
         'lilyplayer.player',
-        #'lilyplayer.subtitles',
+        'lilyplayer.subtitles',
         'lilyplayer.playlist',
         'lilyplayer.utils',
         
