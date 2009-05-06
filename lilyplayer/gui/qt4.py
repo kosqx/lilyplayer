@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 import sys
 import os.path
+import thread
 
 
 from PyQt4.QtCore import *
@@ -30,6 +31,7 @@ from PyQt4.QtGui import *
 
 import lilyplayer.settings as settings
 import lilyplayer.utils.utils as utils
+import lilyplayer.info.imdb_info as imdb_info
 
 from qt4_keys import key_event_to_str
 from qt4_controls import PlayControls
@@ -102,7 +104,24 @@ class GuiMainWindow(QMainWindow):
             self.controler.open(urls[0])
         else:
             event.ignore()
-
+class GuiMovieWindow(QWidget):
+    def __init__(self, parent, controler):
+        QMainWindow.__init__(self, parent)
+        self.setMouseTracking(True)
+        self.controler = controler
+        
+        self.setAcceptDrops(True)
+        
+        self.setMouseTracking(True)
+        self.setAutoFillBackground(True)
+        
+        
+        palette = self.palette()
+        palette.setColor(QPalette.Active, QPalette.Window, QColor(0, 0, 0))
+        palette.setColor(QPalette.Inactive, QPalette.Window, QColor(0, 0, 0))
+        
+        self.setPalette(palette)
+        
         
 class GuiThumbinalDialog(object):
     def __init__(self, parent=None):
@@ -255,11 +274,18 @@ class GuiSidebar(QTabWidget):
         QTabWidget.__init__(self, parent)
         
         self.controler = controler
+        
+        self.controler.signal.connect('media-opened', self.on_opened)
+        
 
         #self.tab_meta = QTextBrowser(self)
         self.tab_meta = QTextEdit(self)
         self.tab_meta.setReadOnly(True)
         self.tab_meta.setHtml("<h1>Metadata</h1>")
+       
+        self.tab_info = QTextEdit(self)
+        self.tab_info.setReadOnly(True)
+        self.tab_info.setHtml("<h1>Info</h1>")
         
        
         self.list_model = PlaylistModel(controler)
@@ -272,20 +298,66 @@ class GuiSidebar(QTabWidget):
         self.controler.signal.connect('playlist', self.playlist_update)
         
 
-        #self.addTab(QLabel("Here will  be info about movie from IBDb"), "Info")
+        self.addTab(self.tab_info, "Info")
         self.addTab(self.tab_meta, "Meta")
         self.addTab(self.tab_list, "List")
-        # self.addTab(QLabel("Subtitle download and select"), "Subs")
-        # self.addTab(QLabel("Common settings"), "Settings")
-        self.setFixedWidth(220)
+        self.addTab(QLabel("Subtitle download and select"), "Subs")
+        self.addTab(QLabel("Common settings"), "Settings")
+        self.setFixedWidth(250)
+        
+    def on_opened(self, *a):
+        class InfoThread(QThread): 
+            def __init__(self, parent):
+                QThread.__init__(self, parent)
+                self.parent = parent
+
+            def run(self): 
+                self.parent._info_text, self.parent._info_img = imdb_info.IMDbInfo().get_info(self.parent.controler.player.filename)
+        
+        print 'on_opened ' * 100
+        
+        result=['<h1>Metadata</h1>']
+        structs = [
+            ('video', self.controler.player.video),
+            ('audio', self.controler.player.audio)
+        ]
+        for name, struct in structs:
+            result.append('<h2>%s</h2>\n<table>' % name)
+            for i in struct:
+                result.append('<tr><td>%s</td><td>%s</td></tr>' % (i, struct[i]))
+            result.append('</table>')
+            
+        self.tab_meta.setHtml('\n'.join(result))
+        
+        self.tab_info.setHtml('<b>loading...</b>')
+        
+        self._info_thread =  InfoThread(self)
+        self.connect(self._info_thread, SIGNAL("finished()"), self._set_info_text)
+        self._info_thread.start()
+        
+    def _set_info_text(self):
+        if self._info_text:
+            if self._info_img is not None:
+                img = QImage()
+                img.loadFromData(self._info_img)
+                self.tab_info.document().addResource(
+                    QTextDocument.ImageResource,
+                    QUrl("mem://image"),
+                    QVariant(img)
+                )
+            
+            self.tab_info.setHtml(self._info_text)
+        else:
+            self.tab_info.setHtml('<b>Not Found</b>')
+        
+#QWidget.contextMenuEvent (self, QContextMenuEvent)
 
 class GuiMain(QApplication):
     def __init__(self, controler=None): 
         QApplication.__init__(self, sys.argv)
         
-        #self.controler = Controler()
         self.controler = controler
-        
+
         
         
         self.setWindowIcon(QIcon(settings.get_path('data', 'mainicon.png')))
@@ -312,34 +384,13 @@ class GuiMain(QApplication):
 
         
 
-        self.movie_window = QWidget(self.window)
-        self.movie_window.setMouseTracking(True)
-        self.movie_window.setAutoFillBackground(True)
-        
-        
-        palette = self.movie_window.palette()
-        palette.setColor(QPalette.Active, QPalette.Window, QColor(0, 0, 0))
-        palette.setColor(QPalette.Inactive, QPalette.Window, QColor(0, 0, 0))
-        
-        self.movie_window.setPalette(palette)
+        self.movie_window = GuiMovieWindow(self.window, self.controler)
         
         self.markup_window = GuiMarkupWindow(self.movie_window)
         self.markup_window.set_style({'font-size': 32, 'border-width': 1})
-        self.markup_window.show()
         #self.markup_window.render('Ala ma kota<br/>i psa', {'font-size': '32'})
         #self.markup_window.setParent(self.movie_window, Qt.Tool)
         self.markup_window.show()
-        
-        
-        #self.central.layout().addWidget(self.movie_window)
-        
-        #self.tab = QTabWidget()
-        #self.tab.addTab(QLabel("Here will  be info about movie from IBDb"), "Info")
-        #self.tab.addTab(QLabel("Metadata - video width, height; file size, etc"), "Meta")
-        #self.tab.addTab(QLabel("Playlist"), "List")
-        #self.tab.addTab(QLabel("Subtitle download and select"), "Subs")
-        #self.tab.addTab(QLabel("Common settings"), "Settings")
-        #self.tab.setFixedWidth(220)
         
         self.sidebar = GuiSidebar(self.window, controler)
         
@@ -351,11 +402,6 @@ class GuiMain(QApplication):
         
         self.controls = PlayControls(self.window, self.controler)
         self.central.layout().addWidget(self.controls)
-        
-        #self.slider = QSlider(Qt.Horizontal, self.window)
-        #self.slider.setRange (0, 1000)
-        #self.connect(self.slider,  SIGNAL('sliderReleased()'), self.gui_goto)
-        #self.window.layout().addWidget(self.slider)
         
         self.window.setAcceptDrops(True)
         self.movie_window.setAcceptDrops(True)
@@ -399,7 +445,7 @@ class GuiMain(QApplication):
         text = str(self.entry.text())
         self.entry.setText('')
        
-        self.controlerdispatch(text)
+        self.controler.dispatch(text)
     
     def do_resize_video_window(self, width, height):
         request_size = QSize(width, height)
@@ -422,6 +468,25 @@ class GuiMain(QApplication):
         else:
             self.window.showNormal()
             
+            
+    def do_get_view_sidebar(self):
+        return self.sidebar.isVisible()
+
+    def do_set_view_sidebar(self, value):
+        movie_w = self.movie_window.width()
+        total_w = self.splitter.width()
+        window_w = self.window.width()
+        height = self.window.height()
+
+        if value:
+            new_size = QSize(window_w + self._last_sidebar_width, height)
+        else:
+            self._last_sidebar_width = total_w - movie_w
+            new_size = QSize(window_w - self._last_sidebar_width, height)
+        
+        self.sidebar.setVisible(value)
+        self.window.resize(new_size)    
+            
     def do_file_dialog(self, title, mode='open', path=None, filter=None):
         if path is None:
             path = os.path.expanduser('~')
@@ -432,6 +497,7 @@ class GuiMain(QApplication):
             filter = ''
         else:
             filter = ';;'.join('%s (%s)' % (name, ' '.join(exts)) for name, exts in filter)
+        
         if mode == 'save':
             return unicode(QFileDialog.getSaveFileName(self.window, QString(title), QString(path), QString(filter)))
         elif mode == 'open':

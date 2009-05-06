@@ -65,14 +65,14 @@ class Signal(object):
         
     def emit(self, name, *params):
         print '-' * 100
-        print self.signals
+        print 'Signals:', self.signals
         print '-' * 100
         parts = name.split('-')
-        for i in xrange(len(parts) + 1, 0, -1):
+        for i in xrange(len(parts), 0, -1):
             nm = '-'.join(parts[:i])
             print nm
             for fun, args in self.signals.get(nm, []):
-                print 'send to %r' % fun, args, params, args + params
+                print 'send %r to %r' % (nm, fun), args, params, args + params
                 fun(args, *list(args + params))
     
     def connect(self, name, fun, *args):
@@ -133,6 +133,10 @@ class Controler(object):
             MenuItem(''),
             MenuItem('Exit', cmd='exit'),
         ]),
+        MenuItem('View', submenu=[
+            MenuItem('Sidebar', cmd='view-sidebar toggle'),
+        ]),
+        
         MenuItem('Playback', submenu=[
             MenuItem('Play', cmd='play'),
             MenuItem('Pause', cmd='pause'),
@@ -155,6 +159,12 @@ class Controler(object):
                 MenuItem('100%', cmd='video-scale 100%'),
                 MenuItem('150%', cmd='video-scale 150%'),
                 MenuItem('200%', cmd='video-scale 200%'),
+                #MenuItem('250%', cmd='video-scale 250%'),
+                MenuItem('300%', cmd='video-scale 300%'),
+                #MenuItem('350%', cmd='video-scale 350%'),
+                MenuItem('400%', cmd='video-scale 400%'),
+                MenuItem(''),
+                MenuItem('Enter...', cmd='video-scale-dlg'),
             ]),
         ]),
         MenuItem('Audio', submenu=[
@@ -244,6 +254,8 @@ class Controler(object):
                     print e
                 
             self.player.play()
+            self.signal.emit('media-opened')
+            self.info_media_filename = item.filename
         else:
             self.gui.window.setWindowTitle("Lily Player")
             self.player.stop()
@@ -282,6 +294,13 @@ class Controler(object):
             value = not self.gui.do_get_fullscreen()
         
         self.gui.do_set_fullscreen(value)
+        
+    def viw_sidebar(self, value=None):
+        if value is None:
+            value = not self.gui.do_get_view_sidebar()
+        
+        self.gui.do_set_view_sidebar(value)
+        
 
     def playlist_goto(self, index):
         self.open_item(self.playlist.goto(index))
@@ -334,15 +353,20 @@ class Controler(object):
         if self.get_fullscreen():
             logging.info("Try 'video_scale' - in fullscreen mode")
             return
-        if self.player.video is not None:
+        if self.player.video is not None and 'width' in self.player.video and 'height' in self.player.video:
             w = scale * self.player.video.width
             h = scale * self.player.video.height
             self.gui.do_resize_video_window(w, h)
         else:
             logging.warn("Try 'video_scale' - video size unknown")
+            
+    @args(arguments_table, 'video-scale-dlg')
+    def cmd_video_scale_dlg(self):
+        result = self.gui.do_input_dlg('Video scale', 'Enter scale')
+        self.dispatch('video-scale ' + result)
     
     @args(arguments_table, 'video-scale', FloatArg(0.2, 5.0))
-    def cmd_video_size(self, scale):
+    def cmd_video_scale(self, scale):
         self.video_scale(scale)
     
     @args(arguments_table, 'thumbdlg')
@@ -446,6 +470,10 @@ class Controler(object):
     @args(arguments_table, 'playlist-goto', IntArg(0))
     def cmd_playlist_goto(self, index):
         self.playlist_goto(index)
+        
+    @args(arguments_table, 'view-sidebar', EnumArg({'on': True, 'off': False, 'toggle': None}))
+    def cmd_playlist_goto(self, enum):
+        self.viw_sidebar(enum)
 
 def main():
     logging.basicConfig(
@@ -453,6 +481,7 @@ def main():
         format='%(asctime)s  %(levelname)-8s  %(module)-12s  %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
     )
+    
     controler = Controler() 
     controler.exec_()
 

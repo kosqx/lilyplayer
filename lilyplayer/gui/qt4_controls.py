@@ -37,7 +37,7 @@ class PlayControls(QWidget):
         self.controler = controler
         self.actions = {}
         
-        pos_data = utils.File(settings.get_path('data', 'controls.txt')).read()
+        pos_data = utils.File(settings.get_path('themes', settings.get('gui.theme'), 'controls.txt')).read()
         
         self._pos = {}
         for line in pos_data.splitlines():
@@ -52,7 +52,7 @@ class PlayControls(QWidget):
         assert self._pos[']'][1] == self._pos['}'][1]
         
         self.setSizePolicy(QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed))
-        self._pixmap = QPixmap(settings.get_path('data', 'controls.png'))
+        self._pixmap = QPixmap(settings.get_path('themes', settings.get('gui.theme'), 'controls.png'))
 
         
     def _makeSpec(self, time, duration, position, volume, play='p', mute='m', full='f'):

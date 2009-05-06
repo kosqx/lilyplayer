@@ -21,12 +21,15 @@ setup(
         'lilyplayer.subtitles',
         'lilyplayer.playlist',
         'lilyplayer.utils',
+        'lilyplayer.info',
         
     ],
     data_files=[
         
         ('/usr/bin',                            ['lilyp']),
-        ('/usr/share/lilyplayer/data',          ['data/controls.png', 'data/controls.txt', 'data/mainicon.png']),
+        ('/usr/share/lilyplayer/data',          ['data/mainicon.png']),
+        ('/usr/share/lilyplayer/themes/black',  ['data/themes/black/controls.png',  'data/themes/black/controls.txt']),
+        ('/usr/share/lilyplayer/themes/silver', ['data/themes/silver/controls.png', 'data/themes/silver/controls.txt']),
         #('/usr/share/lilyplayer/',              ['readme']),
         #('/usr/share/lilyplayer/',              ['license']),
         #('/usr/share/lilyplayer/',              ['data/icons/16x16/lilyplayer.png']),

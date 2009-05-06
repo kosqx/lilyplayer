@@ -48,6 +48,7 @@ class Player(object):
     
     def open(self, filename):
         self._do_open(filename)
+        self.filename = filename
     
     def close(self):
         self._do_close()

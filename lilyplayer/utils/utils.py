@@ -65,15 +65,29 @@ class File(object):
             self.path = os.path.abspath(path)
         else:
             self.path = os.path.join(os.path.expanduser(path[0]), *path[1:])
+            
+    def exists(self):
+        return os.path.exists(self.path)
     
-    def read(self):
+    def makedirs(self):   
+        dir = os.path.dirname(self.path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+    
+    def read(self, offset=None, size=None):
         f = open(self.path)
-        d = f.read()
+        if offset is not None:
+            f.seek(offset)
+        if size is None:
+            d = f.read()
+        else:
+            d = f.read(size)
         f.close()
         return d
     
     def write(self, data):
-        f = open(self.path)
+        self.makedirs()
+        f = open(self.path, 'w')
         f.write(data)
         f.close()
 
@@ -82,8 +96,26 @@ class Struct(object):
     """
     Simple structure like object, used in place simple dicts.
     """
+    class StructIter(object):
+        def __init__(self, struct):
+            self._iter = iter(struct)
+        def next(self):
+            while True:
+                val = self._iter.next()
+                if not val.startswith('_'):
+                    return val
+    
     def __init__(self, **kw):
         self.__dict__.update(kw)
+    
+    def __getitem__(self, key):
+        return self.__dict__[key]
+    
+    def __contains__(self, item):
+        return item in self.__dict__
+    
+    def __iter__(self):
+        return Struct.StructIter(self.__dict__)
     
     def __repr__(self):
         args = ['%s=%r' % (i, self.__dict__[i]) for i in self.__dict__ if not i.startswith('_')]
@@ -131,6 +163,28 @@ def makepath(path):
     if not exists(dpath):
         makedirs(dpath)
     return normpath(abspath(path))
+
+
+def levenshtein_distance(a,b):
+    "Calculates the Levenshtein distance between a and b."
+    # Orginal source: http://hetland.org/coding/python/levenshtein.py
+    n, m = len(a), len(b)
+    if n > m:
+        a, b = b, a
+        n, m = m, n
+        
+    current = range(n + 1)
+    for i in range(1, m + 1):
+        previous, current = current, [i] + [0] * n
+        for j in range(1, n + 1):
+            add, delete = previous[j] + 1, current[j - 1] + 1
+            change = previous[j - 1]
+            if a[j - 1] != b[i - 1]:
+                change = change + 1
+            current[j] = min(add, delete, change)
+            
+    return current[n]
+
 
 def embedded_numbers(s):
     re_digits = re.compile(r'(\d+)')

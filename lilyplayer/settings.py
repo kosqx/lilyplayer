@@ -55,16 +55,46 @@ _settings_data = {
         '7': 'goto 70%',
         '8': 'goto 80%',
         '9': 'goto 90%',
-    }
+    },
+    'gui': {
+        'theme': 'black',
+    },
 }
 
 def get(name):
-    return _settings_data[name]
+    parts = name.split('.')
+    tmp = _settings_data
+
+    for i in parts:
+        tmp = tmp[i]
+        
+    return tmp
 
 def set(name, value):
-    _settings_data[name] = value
+    parts = name.split('.')
+    tmp = _settings_data
 
-def get_path(space, name):
-    return os.path.join('/usr/share/lilyplayer', space, name)
-    #return os.path.join(os.path.dirname(__file__), space, name)
+    for i in parts[:-1]:
+        tmp = tmp[i]
+    
+    tmp[parts[-1]] = value   
+
+def get_path(space, *names, **conf):
+    if space == '~':
+        parts = [os.path.expanduser('~'), '.lilyplayer']
+    else:
+        parts = ['/usr/share/lilyplayer', space]
+
+    parts.extend(names)
+    
+    if conf.get('mkdir', False):
+        dir = os.path.join(parts[:-1])
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+    
+    path = os.path.join(*parts)
+    print 'get_path()', path
+    return path
+    
+    
 
