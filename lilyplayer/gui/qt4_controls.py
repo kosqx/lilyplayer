@@ -37,6 +37,11 @@ class PlayControls(QWidget):
         self.controler = controler
         self.actions = {}
         
+        self._load_theme()
+        
+        self.controler.signal.connect('theme', self.on_theme)
+
+    def _load_theme(self):
         pos_data = utils.File(settings.get_path('themes', settings.get('gui.theme'), 'controls.txt')).read()
         
         self._pos = {}
@@ -53,7 +58,10 @@ class PlayControls(QWidget):
         
         self.setSizePolicy(QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed))
         self._pixmap = QPixmap(settings.get_path('themes', settings.get('gui.theme'), 'controls.png'))
-
+        
+    def on_theme(self, *a):
+        self._load_theme()
+        self.update()
         
     def _makeSpec(self, time, duration, position, volume, play='p', mute='m', full='f'):
         def from_left(spec, left, c, name=None):
@@ -125,16 +133,16 @@ class PlayControls(QWidget):
     def _command(self, name, x, size):
         if self.controler is not None:
             if name == 'mute':
-                self.controler.player.mute = None
+                self.controler.set_mute()
             elif name == 'play':
-                self.controler.player.toggle()
+                self.controler.toggle()
             elif name == 'full':
                 self.controler.set_fullscreen()
             elif name == 'volume':
-                self.controler.player.volume = 1.0 * x / (size - 1)
+                self.controler.set_volume(1.0 * x / (size - 1))
             elif name == 'position':
-                self.controler.player.position_fraction = 1.0 * x / (size - 1)
-                
+                self.controler.set_position_fraction(1.0 * x / (size - 1))
+            
             self.update()
         
     def mousePressEvent(self, event):
@@ -165,17 +173,15 @@ class PlayControls(QWidget):
         
         d = dict(time='00:00:00', duration='00:00:00', position=0.0, volume=1.0, play='p', mute='m', full='f')
         
-        if self.controler is None:
-            pass
-        else:
-            player = self.controler.player
-            d['time']     = str(player.position)
-            d['duration'] = str(player.duration)
-            d['position'] = player.position_fraction
-            d['volume']   = player.volume
-            d['play']     = 'pP'[player.state == 'play']
-            d['mute']     = 'mM'[player.mute]
-            d['full']     = 'fF'[self.controler.get_fullscreen()]
+        if self.controler is not None:
+            ctr = self.controler
+            d['time']     = str(ctr.get_position())
+            d['duration'] = str(ctr.get_duration())
+            d['position'] = ctr.get_position_fraction()
+            d['volume']   = ctr.get_volume()
+            d['play']     = 'pP'[ctr.get_state() == 'play']
+            d['mute']     = 'mM'[ctr.get_mute()]
+            d['full']     = 'fF'[ctr.get_fullscreen()]
 
         spec = self._makeSpec(**d)
         self._drawSpec(painter, spec)

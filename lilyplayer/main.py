@@ -260,6 +260,48 @@ class Controler(object):
             self.gui.window.setWindowTitle("Lily Player")
             self.player.stop()
 
+
+
+   
+    def play(self):
+        self.player.play()
+    def pause(self):
+        self.player.pause()
+    def stop(self):
+        self.player.stop()
+    def toggle(self):
+        self.player.toggle()
+        
+    def get_state(self):
+        return self.player.state
+    def set_state(self, value):
+        self.player.state = value
+        
+    def get_mute(self):
+        return self.player.mute
+    def set_mute(self, value=None):
+        self.player.mute = value
+        
+    def get_volume(self):
+        return self.player.volume
+    def set_volume(self, value):
+        self.player.volume = value
+        
+    def get_position(self):
+        return self.player.position
+    def set_position(self, value):
+        self.player.position = value
+
+    def get_position_fraction(self):
+        return self.player.position_fraction
+    def set_position_fraction(self, value):
+        self.player.position_fraction = value
+        
+    def get_duration(self):
+        return self.player.duration
+
+
+
     def get_current_subtitle(self):
         verses = self.subtitles.at(self.player.position)
         if verses:
@@ -359,6 +401,11 @@ class Controler(object):
             self.gui.do_resize_video_window(w, h)
         else:
             logging.warn("Try 'video_scale' - video size unknown")
+            
+    @args(arguments_table, 'theme', StrArg())
+    def cmd_theme(self, name):
+        settings.set('gui.theme', name)
+        self.signal.emit('theme')
             
     @args(arguments_table, 'video-scale-dlg')
     def cmd_video_scale_dlg(self):
