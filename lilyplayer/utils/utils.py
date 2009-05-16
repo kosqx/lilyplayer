@@ -120,6 +120,10 @@ class Struct(object):
     def __repr__(self):
         args = ['%s=%r' % (i, self.__dict__[i]) for i in self.__dict__ if not i.startswith('_')]
         return 'Struct(' + ', '.join(args) + ')'
+        
+    def _keys(self):
+        return [i for i in self.__dict__ if not i.startswith('_')]
+        
 
 class Null(object):
     """ Null objects always and reliably "do nothing." """
@@ -177,13 +181,26 @@ def levenshtein_distance(a,b):
     for i in range(1, m + 1):
         previous, current = current, [i] + [0] * n
         for j in range(1, n + 1):
-            add, delete = previous[j] + 1, current[j - 1] + 1
-            change = previous[j - 1]
-            if a[j - 1] != b[i - 1]:
-                change = change + 1
+            add    = previous[j] + 1
+            delete = current[j - 1] + 1
+            change = previous[j - 1] + int(a[j - 1] != b[i - 1])
+            
             current[j] = min(add, delete, change)
             
     return current[n]
+
+def reduce_fraction(a,b):
+    d = 2
+    while d <= min(a,b):
+        while a % d == 0 and b % d == 0:
+            a, b = a / d, b / d
+        d += 1
+    return a,b
+    # TODO: unittest
+    # assert reduce_fraction(624, 352) == (39, 22)
+    # assert reduce_fraction(1920, 1080) == (16, 9)
+    # assert reduce_fraction(1920, 720) == (8, 3)
+
 
 
 def embedded_numbers(s):

@@ -55,9 +55,40 @@ _settings_data = {
         '7': 'goto 70%',
         '8': 'goto 80%',
         '9': 'goto 90%',
+        
+        
+        'Alt+1': 'video-scale  25%',
+        'Alt+2': 'video-scale  50%',
+        'Alt+3': 'video-scale  75%',
+        'Alt+4': 'video-scale 100%',
+        'Alt+5': 'video-scale 125%',
+        'Alt+6': 'video-scale 150%',
+        'Alt+7': 'video-scale 175%',
+        'Alt+8': 'video-scale 200%',
+        'Alt+9': 'video-scale 225%',
+        'Alt+0': 'video-scale 250%',
+        
+        'Ctrl+1': 'video-scale  50%',
+        'Ctrl+2': 'video-scale 100%',
+        'Ctrl+3': 'video-scale 150%',
+        'Ctrl+4': 'video-scale 200%',
+        'Ctrl+5': 'video-scale 250%',
+        'Ctrl+6': 'video-scale 300%',
+        'Ctrl+7': 'video-scale 350%',
+        'Ctrl+8': 'video-scale 400%',
+        'Ctrl+9': 'video-scale 450%',
+        'Ctrl+0': 'video-scale 500%',
+        
+        
     },
     'gui': {
         'theme': 'black',
+        'thumb': {
+            'cols':   4,
+            'rows':   8,
+            'size':   200,
+            'margin': 10,
+        },
     },
 }
 
@@ -75,6 +106,8 @@ def set(name, value):
     tmp = _settings_data
 
     for i in parts[:-1]:
+        if i not in tmp:
+            tmp[i] = {}
         tmp = tmp[i]
     
     tmp[parts[-1]] = value   

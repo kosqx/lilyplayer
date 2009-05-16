@@ -162,7 +162,7 @@ class GStreamerPlayer(Player):
             bus.enable_sync_message_emission() 
             bus.connect('message', self.on_message) 
             bus.connect('sync-message::element', self.on_sync_message)
-            #bus.connect('notify::source', self.on_notify)
+            bus.connect('notify::source', self.on_notify_source)
             bus.connect('notify', self.on_notify)
             
             self.player._bus = bus
@@ -173,11 +173,14 @@ class GStreamerPlayer(Player):
         def on_sync_message(self, bus, message):
             self.player._cb_sync_message(bus, message)
             
-        def on_notify(self, *a):
+        def on_notify(self, bus, message):
             pass
             print 'on_notify --'
             print a
             #self.player._cb_sync_message(bus, message)
+            
+        def on_notify_source(self, bus, message):
+            self.player._cb_notify_source(bus, message)
 
     class SnapshotPipeline:
         def __init__(self):
@@ -235,6 +238,7 @@ class GStreamerPlayer(Player):
         
         self.video = None
         self.audio = None
+        self.metadata = {}
         
         # works
         #print gst.xml_write(self._player)
@@ -286,6 +290,8 @@ class GStreamerPlayer(Player):
     def _cb_message(self, bus, message):
         t = message.type
         
+        #print '('*100, t
+        
         if t == gst.MESSAGE_ASYNC_DONE:
             pass
         elif t == gst.MESSAGE_EOS:
@@ -301,13 +307,24 @@ class GStreamerPlayer(Player):
             
         elif t == gst.MESSAGE_TAG:
             pass
-            #print 'MESSAGE_TAG', '-' * 100
-            #print message
-            #print dir(message)
-            #taglist = message.parse_tag()
-            #print 'on_tag:'
-            #for key in taglist.keys():
-                #print '\t%s = %s' % (key, taglist[key])
+            print 'MESSAGE_TAG', '-' * 100
+            print 'message', message
+            print 'flags', message.type
+            print 'dir()', dir(message)
+            for i in dir(message):
+                obj = getattr(message, i)
+                if not i.startswith('__') and callable(obj):
+                    try:
+                        print i,'\t\t', obj()
+                    except:
+                        print i,'\t\t', obj
+                else:
+                    print i,'\t\t', obj
+            taglist = message.parse_tag()
+            print 'on_tag:'
+            for key in taglist.keys():
+                self.metadata[key] = taglist[key]
+                print '\t%s = %s' % (key, taglist[key])
 
     def _cb_sync_message(self, bus, message):
         if message.structure is None:
@@ -317,6 +334,51 @@ class GStreamerPlayer(Player):
             imagesink = message.src
             imagesink.set_property('force-aspect-ratio', True)
             imagesink.set_xwindow_id(self._xid)
+            
+    def _cb_notify_source(self, pad, args):
+        print '^' * 400
+        
+        
+        caps = pad.get_negotiated_caps()
+        if not caps:
+            pad.info("no negotiated caps available")
+            return
+        pad.info("caps:%s" % caps.to_string())
+        # the caps are fixed
+        # We now get the total length of that stream
+        #q = gst.query_new_duration(gst.FORMAT_TIME)
+        #pad.info("sending duration query")
+        #if pad.get_peer().query(q):
+        #    format, length = q.parse_duration()
+        #    if format == gst.FORMAT_TIME:
+        #        pad.info("got duration (time) : %s" % (gst.TIME_ARGS(length),))
+        #    else:
+        #        pad.info("got duration : %d [format:%d]" % (length, format))
+        #else:
+        #    length = -1
+        #    gst.warning("duration query failed")
+
+        # We store the caps and length in the proper location
+        if "audio" in caps.to_string():
+            #self.audiocaps = caps
+            #self.audiolength = length
+            self.metadata['audiorate'] = caps[0]["rate"]
+            self.metadata['audiowidth'] = caps[0]["width"]
+            self.metadata['audiochannels'] = caps[0]["channels"]
+            #if "x-raw-float" in caps.to_string():
+            #    self.audiofloat = True
+            #else:
+            #    self.audiodepth = caps[0]["depth"]
+            #if self._nomorepads and ((not self.is_video) or self.videocaps):
+            #    self._finished(True)
+        elif "video" in caps.to_string():
+            #self.videocaps = caps
+            #self.videolength = length
+            self.metadata['videowidth'] = caps[0]["width"]
+            metadata['self.videoheight'] = caps[0]["height"]
+            self.metadata['videorate'] = caps[0]["framerate"]
+            #if self._nomorepads and ((not self.is_audio) or self.audiocaps):
+            #    self._finished(True)
 
     def _seek(self, pos, wait=True):
         #self._player.seek(self._speed, gst.FORMAT_TIME,
@@ -361,6 +423,10 @@ class GStreamerPlayer(Player):
             return 0
 
     def _do_open(self, url, start=True):
+        self.video = Struct()
+        self.audio = Struct()
+        self.metadata = {}
+        
         if url.startswith('/'):
             url = 'file://' + url
         self._player.set_property('uri', url)
@@ -371,30 +437,44 @@ class GStreamerPlayer(Player):
         #msg = self._bus.poll(gst.MESSAGE_ASYNC_DONE, gst.SECOND * 3)
         self._seek(0, wait=True)
         
-        self.video = Struct()
-        self.audio = Struct()
-        
         #self._player.props.current_text = 0
         #self._player.set_property('current_video', -1)
         #self._player.set_property('current_audio', 1)
         
-        self._player.set_property('suburi', '/home/kosqx/asdf.srt')
-        self._player.set_property('subtitle-font-desc', 'Sans Bold 24')
-        self._player.set_property('subtitle_encoding', 'utf-8')
+        #self._player.set_property('suburi', '/home/kosqx/asdf.srt')
+        #self._player.set_property('subtitle-font-desc', 'Sans Bold 24')
+        #self._player.set_property('subtitle_encoding', 'utf-8')
         
         if True:
             print 'audio', self._player.props.current_audio
             print 'text ', self._player.props.current_text 
             print 'video', self._player.props.current_video
+            
+            #if self._player.props.current_text >= 0:
+            #    self._player.props.current_text = -1
+            
             print
             
             for i in self._player.props.stream_info_value_array:
+                if i.props.type.value_nick == 'video':
+                    self.video.codec = i.props.codec
+                elif i.props.type.value_nick == 'audio':
+                    self.audio.codec = i.props.codec
+                
                 print 'nick   ', i.props.type.value_nick
                 print 'codec  ', i.props.codec
                 print 'decoder', i.props.language_code
                 print 'lang   ', i.props.language_code
                 print 'mute   ', i.props.mute
                 print 'caps   ', i.props.caps.to_string()
+                
+                try:
+                    caps = i.props.caps
+                    print 'audiorate', caps[0]["rate"]
+                    print 'audiowidth', caps[0]["width"]
+                    print 'audiochannels', caps[0]["channels"]
+                except:
+                    print 'except'
                 print 
             
             def gst_framerate_to_float(framerate):

@@ -352,6 +352,28 @@ class Controler(object):
         self.open_item(self.playlist.next())
         self.signal.emit('playlist-next')
 
+    def get_meta_data(self):
+        structs = [
+            ('Video', self.player.video),
+            ('Audio', self.player.audio),
+            ('Other', self.player.metadata)
+        ]
+        
+        result=['Metadata']
+        for name, struct in structs:
+            tab = []
+            for i in struct:
+                tab.append((i, struct[i]))
+            result.append((name, tab))
+            
+        #tab = []
+        #
+        #for i in struct:
+        #    tab.append((i, struct[i]))
+        #result.append(('Meta', tab))
+        
+        return result
+
     def thumbinals(self, cols, rows, size, margin):
         count = rows * cols
         
@@ -386,7 +408,13 @@ class Controler(object):
 
 
     def thumbinals_dialog(self):
-        struct = self.gui.do_thumbinals_dialog(utils.Struct(cols=4, rows=10, size=200, margin=10))
+        defaults = utils.Struct(
+            cols=settings.get('gui.thumb.cols'),
+            rows=settings.get('gui.thumb.rows'),
+            size=settings.get('gui.thumb.size'),
+            margin=settings.get('gui.thumb.margin')
+        )
+        struct = self.gui.do_thumbinals_dialog(defaults)
         if struct is not None:
             s = struct
             self.thumbinals(s.cols, s.rows, s.size, s.margin)

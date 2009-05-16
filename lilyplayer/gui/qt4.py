@@ -104,6 +104,8 @@ class GuiMainWindow(QMainWindow):
             self.controler.open(urls[0])
         else:
             event.ignore()
+
+
 class GuiMovieWindow(QWidget):
     def __init__(self, parent, controler):
         QMainWindow.__init__(self, parent)
@@ -143,7 +145,7 @@ class GuiThumbinalDialog(object):
         grid.addWidget(self.rowsSpinBox, 0, 3)
         
         self.sizeSpinBox = QSpinBox(self.dialog)
-        self.sizeSpinBox.setRange(100, 600)
+        self.sizeSpinBox.setRange(100, 2000)
         self.sizeSpinBox.setSingleStep(10)
         sizeLabel = QLabel('Thumbinal size', self.dialog)
         grid.addWidget(sizeLabel,        1, 0)
@@ -180,6 +182,42 @@ class GuiThumbinalDialog(object):
             )
         else:
             return None
+
+class NiceSlider(QWidget):
+    def __init__(self, label_code=None, value_code=None, parent=None):
+        super(NiceSlider, self).__init__(parent)
+
+        
+        self.label = QLabel('Value', self)
+        self.slider = QSlider(Qt.Horizontal, self)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.label)
+        layout.addWidget(self.slider)
+        self.setLayout(layout)
+        self.setSizePolicy(QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed))
+        
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        #self.label.setStyleSheet('background-color:red')
+        #self.slider.setStyleSheet('background-color:blue')
+        
+        self.connect(self.slider, SIGNAL("valueChanged(int)"), self._on_value_change)
+        self.slider.setRange(-100, 100)
+        
+        self.value_code = (lambda v: v) if value_code is None else (value_code)
+        self.label_code = label_code
+        self.value = self.value_code(0)
+        
+
+    def _on_value_change(self, value):
+        self._value = self.value_code(value)
+        self.label.setText(self.label_code(self._value))
+        
+    def value(self):
+        return self._value
+    
+        
+
 
 class PlaylistModel(QAbstractTableModel):
 
@@ -271,6 +309,13 @@ class GuiSidebar(QTabWidget):
         
     
     def __init__(self, parent, controler):
+        css = """
+        table {border-color: black; border-style: solid;}
+        
+        h1 {color: red; background-color:#ddd; margin-bottom:0px;}
+        h2 {color: blue; background-color:#ddd; margin-bottom:0px;}
+        """
+        
         QTabWidget.__init__(self, parent)
         
         self.controler = controler
@@ -278,14 +323,28 @@ class GuiSidebar(QTabWidget):
         self.controler.signal.connect('media-opened', self.on_opened)
         
 
-        #self.tab_meta = QTextBrowser(self)
-        self.tab_meta = QTextEdit(self)
-        self.tab_meta.setReadOnly(True)
+        self.tab_meta = QTextBrowser(self)
+        #self.tab_meta = QTextEdit(self)
+        #self.tab_meta.setReadOnly(True)
         self.tab_meta.setHtml("<h1>Metadata</h1>")
        
-        self.tab_info = QTextEdit(self)
-        self.tab_info.setReadOnly(True)
+        self.tab_info = QTextBrowser(self)
+        self.tab_info.document().setDefaultStyleSheet(css)
+        self.tab_info.setOpenExternalLinks(True)
+        #self.tab_info = QTextEdit(self)
+        #self.tab_info.setReadOnly(True)
         self.tab_info.setHtml("<h1>Info</h1>")
+        
+        self.tab_sett = QWidget(self)
+        layout = QVBoxLayout(self.tab_sett)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.tab_sett.setLayout(layout)
+        layout.addWidget(NiceSlider(self))
+        layout.addWidget(NiceSlider(self))
+        layout.addWidget(NiceSlider(self))
+        layout.addWidget(QWidget(self))
+        
+        
         
        
         self.list_model = PlaylistModel(controler)
@@ -302,7 +361,7 @@ class GuiSidebar(QTabWidget):
         self.addTab(self.tab_meta, "Meta")
         self.addTab(self.tab_list, "List")
         self.addTab(QLabel("Subtitle download and select"), "Subs")
-        self.addTab(QLabel("Common settings"), "Settings")
+        self.addTab(self.tab_sett, "Settings")
         self.setFixedWidth(250)
         
     def on_opened(self, *a):
@@ -314,26 +373,26 @@ class GuiSidebar(QTabWidget):
             def run(self): 
                 self.parent._info_text, self.parent._info_img = imdb_info.IMDbInfo().get_info(self.parent.controler.player.filename)
         
-        print 'on_opened ' * 100
-        
-        result=['<h1>Metadata</h1>']
-        structs = [
-            ('video', self.controler.player.video),
-            ('audio', self.controler.player.audio)
-        ]
-        for name, struct in structs:
-            result.append('<h2>%s</h2>\n<table>' % name)
-            for i in struct:
-                result.append('<tr><td>%s</td><td>%s</td></tr>' % (i, struct[i]))
-            result.append('</table>')
-            
-        self.tab_meta.setHtml('\n'.join(result))
+        self.tab_meta.setHtml(self._metadata_to_html(self.controler.get_meta_data()))
         
         self.tab_info.setHtml('<b>loading...</b>')
         
         self._info_thread =  InfoThread(self)
         self.connect(self._info_thread, SIGNAL("finished()"), self._set_info_text)
         self._info_thread.start()
+        
+    def _metadata_to_html(self, md):
+        result=['<h1>%s</h1>' % md[0]]
+
+        for name, tab in md[1:]:
+            result.append('<h2>%s</h2>' % name)
+            result.append('<table>')
+            print tab
+            for row in tab:
+                result.append('<tr><td>%s</td><td>%s</td></tr>' % row)
+            result.append('</table>')
+            
+        return '\n'.join(result)
         
     def _set_info_text(self):
         if self._info_text:
