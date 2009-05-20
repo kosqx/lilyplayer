@@ -216,8 +216,8 @@ class TabPlaylist(QTableView):
         self.controler.signal.connect('playlist', self.playlist_update)
         
     def playlist_update(self, *a):
-        self.tab_list.setModel(None)
-        self.tab_list.setModel(self.list_model)
+        self.setModel(None)
+        self.setModel(self.list_model)
 
 
 class TabSubtitles(QWidget):
