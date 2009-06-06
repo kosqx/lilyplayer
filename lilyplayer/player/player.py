@@ -362,9 +362,9 @@ class GStreamerPlayer(Player):
         if "audio" in caps.to_string():
             #self.audiocaps = caps
             #self.audiolength = length
-            self.metadata['audiorate'] = caps[0]["rate"]
-            self.metadata['audiowidth'] = caps[0]["width"]
-            self.metadata['audiochannels'] = caps[0]["channels"]
+            self.metadata['audio-rate'] = caps[0]["rate"]
+            self.metadata['audio-width'] = caps[0]["width"]
+            self.metadata['audio-channels'] = caps[0]["channels"]
             #if "x-raw-float" in caps.to_string():
             #    self.audiofloat = True
             #else:
@@ -374,9 +374,9 @@ class GStreamerPlayer(Player):
         elif "video" in caps.to_string():
             #self.videocaps = caps
             #self.videolength = length
-            self.metadata['videowidth'] = caps[0]["width"]
-            metadata['self.videoheight'] = caps[0]["height"]
-            self.metadata['videorate'] = caps[0]["framerate"]
+            self.metadata['video-width'] = caps[0]["width"]
+            metadata['self.video-height'] = caps[0]["height"]
+            self.metadata['video-rate'] = caps[0]["framerate"]
             #if self._nomorepads and ((not self.is_audio) or self.audiocaps):
             #    self._finished(True)
 
@@ -458,8 +458,10 @@ class GStreamerPlayer(Player):
             for i in self._player.props.stream_info_value_array:
                 if i.props.type.value_nick == 'video':
                     self.video.codec = i.props.codec
+                    self.metadata['video-codec'] = i.props.codec
                 elif i.props.type.value_nick == 'audio':
                     self.audio.codec = i.props.codec
+                    self.metadata['audio-codec'] = i.props.codec
                 
                 print 'nick   ', i.props.type.value_nick
                 print 'codec  ', i.props.codec
@@ -493,12 +495,17 @@ class GStreamerPlayer(Player):
                 self.video.height    = caps['height']
                 self.video.framerate = gst_framerate_to_float(caps['framerate'])
                 self.video.fourcc    = caps['format'].fourcc
+                self.metadata['video-width'] = caps['width']
+                self.metadata['video-height'] = caps['height']
+                self.metadata['video-framerate'] = gst_framerate_to_float(caps['framerate'])
+                self.metadata['video-format'] = caps['format'].fourcc
+                
             else:
                 """ no video """
                 r = gst.registry_get_default()
                 l = [x for x in r.get_feature_list(gst.ElementFactory) if (gst.ElementFactory.get_klass(x) == "Visualization")]
                 for v in l:
-                    print v.get_name()
+                    print 'Visualization', v.get_name()
                 #e = [y for y in l if (y.get_name() == self.visualization_name)] 
                 e = l
                 if e:

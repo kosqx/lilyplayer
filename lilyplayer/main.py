@@ -337,7 +337,7 @@ class Controler(object):
         
         self.gui.do_set_fullscreen(value)
         
-    def viw_sidebar(self, value=None):
+    def view_sidebar(self, value=None):
         if value is None:
             value = not self.gui.do_get_view_sidebar()
         
@@ -358,6 +358,9 @@ class Controler(object):
             ('Audio', self.player.audio),
             ('Other', self.player.metadata)
         ]
+
+        meta = dict(self.player.metadata)
+        
         
         result=['Metadata']
         for name, struct in structs:
@@ -365,13 +368,24 @@ class Controler(object):
             for i in struct:
                 tab.append((i, struct[i]))
             result.append((name, tab))
-            
-        #tab = []
-        #
-        #for i in struct:
-        #    tab.append((i, struct[i]))
-        #result.append(('Meta', tab))
         
+        meta = dict(self.player.metadata)
+            
+        tmp = []
+        if 'video-width' in meta:
+            tmp.append(('Width', meta['video-width']))
+        if 'video-height' in meta:
+            tmp.append(('Height', meta['video-height']))
+        if 'video-width' in meta and 'video-height' in meta:
+            w = meta['video-width']
+            h = meta['video-height']
+            rw, rh = utils.reduce_fraction(w, h)
+            tmp.append(('Ratio', '%d:%d (%.2f:1)' % (rw, rh, float(rw) / rh)))
+            tmp.append(('MegaPixels', '%.2f' % (w * h / 1000000.0)))
+        result.append(('Video', tmp))    
+        
+            
+
         return result
 
     def thumbinals(self, cols, rows, size, margin):
@@ -548,7 +562,7 @@ class Controler(object):
         
     @args(arguments_table, 'view-sidebar', EnumArg({'on': True, 'off': False, 'toggle': None}))
     def cmd_playlist_goto(self, enum):
-        self.viw_sidebar(enum)
+        self.view_sidebar(enum)
 
 def main():
     logging.basicConfig(
