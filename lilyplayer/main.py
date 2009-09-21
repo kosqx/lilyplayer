@@ -28,18 +28,18 @@ import random
 import platform
 import logging
 
-from gui.qt4 import GuiMain
 
+from lilyplayer.gui.qt4 import GuiMain
+from lilyplayer.utils.play_time import Time
+from lilyplayer.player.player import Player
+from lilyplayer.utils.arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
+from lilyplayer.playlist.playlist import Playlist
+from lilyplayer.playlist.playlist import PlaylistEntry
+from lilyplayer.subtitles.subtitles import Subtitles
 
-from utils.play_time import Time
-from player.player import Player
-from utils.arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
-from playlist.playlist import Playlist, PlaylistItem
-from subtitles.subtitles import Subtitles
-
-import utils.compose_thumbs as compose_thumbs
-import settings
-import utils.utils as utils
+import lilyplayer.utils.compose_thumbs as compose_thumbs
+import lilyplayer.settings
+import lilyplayer.utils.utils as utils
 
 __version__ = (0, 3, 1)
 __author__ = 'Krzysztof Kosyl'
@@ -111,7 +111,7 @@ class MenuItem(object):
         return self.submenu is not None
     
     def is_separator(self):
-         return (self.cmd is None) and (self.submenu is None)
+        return (self.cmd is None) and (self.submenu is None)
     
     def by_name(self, name):
         result = []
@@ -554,14 +554,16 @@ class Controler(object):
     
     @args(arguments_table, 'playlist-mode', EnumArg(['repeat-one', 'repeat', 'shuffle', 'default']))
     def cmd_playlist_mode(self, mode):
+        """ Changes playlist mode to specified """
         self.playlist.mode = mode
     
     @args(arguments_table, 'playlist-goto', IntArg(0))
     def cmd_playlist_goto(self, index):
+        """ Changes playlist current item do specified """
         self.playlist_goto(index)
         
     @args(arguments_table, 'view-sidebar', EnumArg({'on': True, 'off': False, 'toggle': None}))
-    def cmd_playlist_goto(self, enum):
+    def cmd_view_sidebar(self, enum):
         self.view_sidebar(enum)
 
 def main():

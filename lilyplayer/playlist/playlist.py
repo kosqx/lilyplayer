@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 import os.path
 import random
 
+from lilyplayer.playlist.entry import PlaylistEntry
 
 class PlaylistItem(object):
     def __init__(self, filename, name=None):
@@ -40,7 +41,6 @@ class PlaylistItem(object):
 
 class Playlist(object):
     def __init__(self, items):
-        #self.items = [PlaylistItem(i) for i in items]
         self.items = []
         for item in items:
             self.append(item)
@@ -70,10 +70,10 @@ class Playlist(object):
             return None
 
     def append(self, filename):
-        self.items.append(PlaylistItem(filename))
+        self.items.append(PlaylistEntry(filename))
 
     def append_and_goto(self, filename):
-        self.items.append(PlaylistItem(filename))
+        self.items.append(PlaylistEntry(filename))
         self.current = len(self.items) - 1
         return self.get()
 
