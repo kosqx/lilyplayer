@@ -283,6 +283,9 @@ class GuiMain(QApplication):
         self.entry.setText('')
        
         self.controler.dispatch(text)
+        
+    def do_set_title(self, title):
+        self.window.setWindowTitle(title)
     
     def do_resize_video_window(self, width, height):
         request_size = QSize(width, height)
@@ -298,14 +301,18 @@ class GuiMain(QApplication):
     def do_set_fullscreen(self, value):
         #self.entry.setVisible(not value)
         self.window.menuBar().setVisible(not value)
-        self.sidebar.setVisible(not value)
+        
+        if value:
+            self.old_size = self.window.size()
         
         if value:
             self.window.showFullScreen()
         else:
             self.window.showNormal()
-            
-            
+        
+        if not value and hasattr(self, 'old_size'):
+            self.window.resize(self.old_size)
+    
     def do_get_view_sidebar(self):
         return self.sidebar.isVisible()
 

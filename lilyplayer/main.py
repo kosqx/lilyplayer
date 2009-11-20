@@ -34,11 +34,11 @@ from lilyplayer.utils.play_time import Time
 from lilyplayer.player.player import Player
 from lilyplayer.utils.arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
 from lilyplayer.playlist.playlist import Playlist
-from lilyplayer.playlist.playlist import PlaylistEntry
+#from lilyplayer.playlist.playlist import PlaylistEntry
 from lilyplayer.subtitles.subtitles import Subtitles
 
 import lilyplayer.utils.compose_thumbs as compose_thumbs
-import lilyplayer.settings
+import lilyplayer.settings as settings
 import lilyplayer.utils.utils as utils
 
 __version__ = (0, 3, 1)
@@ -189,6 +189,7 @@ class Controler(object):
         self.gui.update_menu(self.main_menu)
         self.player = Player.create('gstreamer', self.gui, self.gui.movie_window.winId())
         settings.get_path('data', 'mainicon.png')
+        self.view = {}
     
     def exec_(self):
         self.gui.exec_()
@@ -239,7 +240,8 @@ class Controler(object):
         if item:
             self.player.stop()
             
-            self.gui.window.setWindowTitle("%s - Lily Player"  % item.name)
+            #self.gui.window.setWindowTitle("%s - Lily Player"  % item.name)
+            #self.gui.do_set_title("%s - Lily Player"  % item.name)
             logging.info("Media file opening: %r" % item.filename)
             self.player.open(item.filename)
             logging.info("Media file opened")
@@ -253,24 +255,41 @@ class Controler(object):
                 except Exception, e:
                     print e
                 
-            self.player.play()
+            #self.player.play()
+            self.play()
             self.signal.emit('media-opened')
             self.info_media_filename = item.filename
         else:
-            self.gui.window.setWindowTitle("Lily Player")
+            #self.gui.window.setWindowTitle("Lily Player")
+            self.gui.do_set_title("Lily Player")
             self.player.stop()
 
 
-
+    def update_title(self):
+        item = self.playlist.get()
+        if item:
+            self.gui.do_set_title("%s - Lily Player"  % item.name)
+        else:
+            self.gui.do_set_title("Lily Player")
    
     def play(self):
         self.player.play()
+        self.update_title()
+        #item = self.playlist.get()
+        #if item:
+        #    self.gui.do_set_title("%s - Lily Player"  % item.name)
+        #else:
+        #    self.gui.do_set_title("Lily Player")
+    
     def pause(self):
         self.player.pause()
+        self.update_title()
     def stop(self):
         self.player.stop()
+        self.update_title()
     def toggle(self):
         self.player.toggle()
+        self.update_title()
         
     def get_state(self):
         return self.player.state
@@ -333,15 +352,28 @@ class Controler(object):
     
     def set_fullscreen(self, value=None):
         if value is None:
-            value = not self.gui.do_get_fullscreen()
-        
-        self.gui.do_set_fullscreen(value)
+            #value = not self.gui.do_get_fullscreen()
+            value = not self.view.get('fullscreen', False)
+            
+        if value:
+            self.gui.do_set_view_sidebar(False)
+            self.gui.do_set_fullscreen(True)
+        else:
+            self.gui.do_set_fullscreen(False)
+            self.gui.do_set_view_sidebar(self.view.get('sidebar', True))
+            
+        self.view['fullscreen'] = value
+        #self.view['sidebar'] = not value
+        print 'self.view', self.view
         
     def view_sidebar(self, value=None):
         if value is None:
-            value = not self.gui.do_get_view_sidebar()
+            #value = not self.gui.do_get_view_sidebar()
+            value = not self.view.get('sidebar', True)
         
         self.gui.do_set_view_sidebar(value)
+        self.view['sidebar'] = value
+        print 'self.view', self.view
         
 
     def playlist_goto(self, index):
