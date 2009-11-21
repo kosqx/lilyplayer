@@ -104,14 +104,12 @@ class Time(object):
             value = 0
 
             prec = spec[1:-1]
-            print locals()
             if prec == '':
                 prec = 0
             else:
                 prec = int(prec)
 
             what = spec[-1:]
-            print locals()
 
             if what == 'h':
                 value = time.hours()
@@ -203,13 +201,11 @@ class Time(object):
             pattern = re.compile(pattern)
             match = pattern.match(text)
             groups = match.groupdict()
-            #print groups
             
             h = int_or(groups['h'], 0)
             m = int_or(groups['m'], 0)
             s = int_or(groups['s'], 0)
             ms = int_or(("%s%s" % (groups['ms'], '000'))[:3], 0)
-            #print h,m,s,ms
             return Time(h=h, m=m, s=s, ms=ms)
         except:
             raise ValueError, "Can not parse text"

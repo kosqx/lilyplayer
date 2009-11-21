@@ -142,7 +142,7 @@ class MicroDvdFormat(SubtitlesFormat):
         for line in lines:
             m = pattern.match(to_unicode(line, encoding))
             d = m.groupdict()
-            print d
+            
             start = Time.from_seconds(int(d['start']))
             try:
                 stop = Time.from_seconds(int(d['stop']))

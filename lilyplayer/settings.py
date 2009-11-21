@@ -35,6 +35,9 @@ _settings_data = {
         'F11':   'fullscreen',
         'Esc':   'fullscreen off',
         
+        'Tab':       'view-sidebar toggle',
+        'Backspace': 'view-sidebar toggle',
+        
         'Q':      'cmddlg',
         'Grave':  'cmddlg',
         
@@ -126,7 +129,6 @@ def get_path(space, *names, **conf):
             os.makedirs(dir)
     
     path = os.path.join(*parts)
-    print 'get_path()', path
     return path
     
     

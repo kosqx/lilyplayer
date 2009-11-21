@@ -64,15 +64,12 @@ class Signal(object):
         self.signals = {}
         
     def emit(self, name, *params):
-        print '-' * 100
-        print 'Signals:', self.signals
-        print '-' * 100
+        logging.debug('Signals: %r' % self.signals)
         parts = name.split('-')
         for i in xrange(len(parts), 0, -1):
             nm = '-'.join(parts[:i])
-            print nm
             for fun, args in self.signals.get(nm, []):
-                print 'send %r to %r' % (nm, fun), args, params, args + params
+                logging.debug('Send %r to %r args %r' % (nm, fun, (args, params, args + params)))
                 fun(args, *list(args + params))
     
     def connect(self, name, fun, *args):
@@ -135,6 +132,7 @@ class Controler(object):
         ]),
         MenuItem('View', submenu=[
             MenuItem('Sidebar', cmd='view-sidebar toggle'),
+            MenuItem('fullscreen', cmd='fullscreen toggle'),
         ]),
         
         MenuItem('Playback', submenu=[
@@ -224,7 +222,7 @@ class Controler(object):
 
     def open_dlg(self):
         filename = self.gui.do_file_dialog('Open file', mode='open', path=None, filter=None)
-        print filename
+        logging.debug('Open dialog file: %r' % filename)
         if filename:
             self.open(filename)
 
@@ -234,8 +232,7 @@ class Controler(object):
         item = self.playlist.append_and_goto(filename)
         self.open_item(item)
         self.signal.emit('playlist-append')
-        print 'controler id', id(self.playlist)
-
+    
     def open_item(self, item):
         if item:
             self.player.stop()
@@ -253,14 +250,12 @@ class Controler(object):
                     self.subtitles.adjust_fps(self.player.video.framerate)
                     self.subtitles.adjust_time(perchar=Time(s=0.01), minimum=Time(s=2))
                 except Exception, e:
-                    print e
+                    logging.debug('Subtitle loading failed: %r' % e)
                 
-            #self.player.play()
             self.play()
             self.signal.emit('media-opened')
             self.info_media_filename = item.filename
         else:
-            #self.gui.window.setWindowTitle("Lily Player")
             self.gui.do_set_title("Lily Player")
             self.player.stop()
 
@@ -268,18 +263,13 @@ class Controler(object):
     def update_title(self):
         item = self.playlist.get()
         if item:
-            self.gui.do_set_title("%s - Lily Player"  % item.name)
+            self.gui.do_set_title(u"%s - Lily Player"  % unicode(item.name, 'utf8'))
         else:
-            self.gui.do_set_title("Lily Player")
+            self.gui.do_set_title(u"Lily Player")
    
     def play(self):
         self.player.play()
         self.update_title()
-        #item = self.playlist.get()
-        #if item:
-        #    self.gui.do_set_title("%s - Lily Player"  % item.name)
-        #else:
-        #    self.gui.do_set_title("Lily Player")
     
     def pause(self):
         self.player.pause()
@@ -324,7 +314,7 @@ class Controler(object):
     def get_current_subtitle(self):
         verses = self.subtitles.at(self.player.position)
         if verses:
-            print verses
+            logging.debug('Current verses: %r' % verses)
         text = (u'<br/>'.join(i.text for i in verses)).replace(u'\n', u'<br/>')
         return text.encode('ascii', 'xmlcharrefreplace')
 
@@ -364,7 +354,7 @@ class Controler(object):
             
         self.view['fullscreen'] = value
         #self.view['sidebar'] = not value
-        print 'self.view', self.view
+        #print 'self.view', self.view
         
     def view_sidebar(self, value=None):
         if value is None:
@@ -373,7 +363,7 @@ class Controler(object):
         
         self.gui.do_set_view_sidebar(value)
         self.view['sidebar'] = value
-        print 'self.view', self.view
+        #print 'self.view', self.view
         
 
     def playlist_goto(self, index):
@@ -581,7 +571,6 @@ class Controler(object):
     
     @args(arguments_table, 'playlist-next')
     def cmd_playlist_next(self):
-        print 'playlist next'
         self.open_item(self.playlist.next())
     
     @args(arguments_table, 'playlist-mode', EnumArg(['repeat-one', 'repeat', 'shuffle', 'default']))
@@ -604,6 +593,7 @@ def main():
         format='%(asctime)s  %(levelname)-8s  %(module)-12s  %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
     )
+    logging.info('LilyPlayer v%s starting' % '.'.join(str(i) for i in __version__))
     
     controler = Controler() 
     controler.exec_()

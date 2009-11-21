@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 import sys
 import os.path
 import thread
+import logging
 
 
 from PyQt4.QtCore import *
@@ -56,7 +57,7 @@ class GuiMainWindow(QMainWindow):
         int delta (self)
         Qt.Orientation orientation (self)
         """
-        print 'whell', event.globalPos(), event.delta()
+        logging.debug('whellEvent %r %r' % (event.globalPos(), event.delta()))
         event.accept()
         if event.delta() < 0:
             keys = 'WheelDown'
@@ -75,19 +76,18 @@ class GuiMainWindow(QMainWindow):
         # TODO: doubleClick(x,y)
         # self.emit(SIGNAL('doubleClick()'))
         self.controler.set_fullscreen()
-        print 'double', event.globalPos()
+        logging.debug('doubleClickEvent %r' % event.globalPos())
     
     def contextMenuEvent(self, event):
         """
         Reason reason (self)
         """
         event.accept()
-        print 'context', event.globalPos()
+        logging.debug('contextMenuEvent %r' % event.globalPos())
 
 
     def mouseMoveEvent(self, event):
-        print event.x(), event.y()
-        pass
+        logging.debug('mouseMoveEvent %r %r' % (event.x(), event.y()))
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -100,7 +100,7 @@ class GuiMainWindow(QMainWindow):
             urls = [unicode(i.path()) for i in event.mimeData().urls()]
             event.acceptProposedAction()
             event.setDropAction(Qt.CopyAction)
-            print urls
+            logging.debug('dropEvent urls: %r' % urls)
             self.controler.open(urls[0])
         else:
             event.ignore()

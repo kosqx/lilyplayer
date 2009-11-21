@@ -149,17 +149,5 @@ def args(*arglist):
 
 
 if __name__ == '__main__':
-
-    print cmd('goto -10%')
-    print cmd('goto 1')
-    print cmd('goto 10')
-    print cmd('goto 1:24:45.678')
-    print cmd('open ala_ma_kota.avi')
-    
-    print cmd('equa 6 -0.5')
-    print cmd('equa all 0.6')
-    print cmd('crop top 10%')
-    print cmd('crop t 13%')
-
-
+    pass
 

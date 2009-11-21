@@ -23,9 +23,11 @@ import os.path
 import re
 import urllib
 import md5
+import logging
 
 
 import imdb
+
 
 import lilyplayer.settings as settings
 import lilyplayer.utils.utils as utils
@@ -125,7 +127,7 @@ class MovieInfo():
        
         try:
         
-            print 'imdb start ' * 100
+            logging.debug('start')
             
             name, season, episodes =  self._filename2title(filename)
             ia = imdb.IMDb()
@@ -144,7 +146,6 @@ class MovieInfo():
             rate_list = []
             
             for item in ir:
-                print item['kind']
                 rate_val = (item['kind'] != rate_kind) * 10
                 rate_val += utils.levenshtein_distance(name, item['title'].lower()) * 2
                 try:
@@ -155,7 +156,7 @@ class MovieInfo():
                 #print item.items()
             rate_list.sort()
             
-            print rate_list
+            logging.debug('Rated list %r' % rate_list)
             
             self.movie = rate_list[0][1]
             
@@ -211,7 +212,7 @@ class MovieInfo():
                     role = actor.currentRole['long imdb name']
                 except:
                     role = ''
-                    print actor.items()
+                    #print actor.items()
                     
                 self.add('<tr><td><b>%(name)s</b></td><td>%(role)s</td></tr>' % dict(
                     name=actor['long imdb name'],
@@ -219,7 +220,7 @@ class MovieInfo():
                 ))
             self.add('</table>')
             
-            print 'imdb end ' * 100
+            #print 'imdb end ' * 100
             
             try:
                 img = self._read_url(self.movie['cover url'])
@@ -236,7 +237,8 @@ class MovieInfo():
             return html, img
         
         except Exception, e:
-            print type(e), e
+            #print type(e), e
+            logging.debug('exception %r' % e)
             return '', None
     
 
@@ -278,7 +280,6 @@ class IMDbInfo:
         name = name.lower()
         
         for s in series:
-            print s
             m = re.search(s, name)
             if m:
                 name = re.split(s, name)[0]
@@ -287,15 +288,15 @@ class IMDbInfo:
                 episodes = re.split('([0-9]+)', d['episodes'])
                 episodes = [int(i) for i in episodes[1::2]]
         
-        print name
+        #print name
         for r in remove:
             # change to split
             name = re.sub(r, ' ', name)
-            print name
+            #print name
         
         name = name.strip()
         
-        print 'name, season, episodes', name, season, episodes
+        logging.debug('filename2title name=%r, season=%r, episodes=%r' % (name, season, episodes))
         
         return name, season, episodes
     
@@ -352,7 +353,7 @@ class IMDbInfo:
 
 
     def get_info(self, filename):
-        print 'get_info ' * 10
+        logging.debug('get_info start')
         
         file_hash = make_file_hash(filename)
         
@@ -367,8 +368,7 @@ class IMDbInfo:
         
        
         try:
-        
-            print 'imdb start ' * 100
+            logging.debug('imdb start')
             
             name, season, episodes =  self._filename2title(filename)
             ia = imdb.IMDb()
@@ -387,7 +387,7 @@ class IMDbInfo:
             rate_list = []
             
             for item in ir:
-                print item['kind']
+                #print item['kind']
                 rate_val = (item['kind'] != rate_kind) * 10
                 rate_val += utils.levenshtein_distance(name, item['title'].lower()) * 2
                 try:
@@ -398,7 +398,7 @@ class IMDbInfo:
                 #print item.items()
             rate_list.sort()
             
-            print rate_list
+            logging.debug('rate list %r' % rate_list)
             
             self.movie = rate_list[0][1]
             
@@ -454,7 +454,7 @@ class IMDbInfo:
                     role = actor.currentRole['long imdb name']
                 except:
                     role = ''
-                    print actor.items()
+                    #print actor.items()
                     
                 self.add('<tr><td><b>%(name)s</b></td><td>%(role)s</td></tr>' % dict(
                     name=actor['long imdb name'],
@@ -462,7 +462,7 @@ class IMDbInfo:
                 ))
             self.add('</table>')
             
-            print 'imdb end ' * 100
+            logging.debug('imdb end')
             
             try:
                 img = self._read_url(self.movie['cover url'])
@@ -479,13 +479,6 @@ class IMDbInfo:
             return html, img
         
         except Exception, e:
-            print type(e), e
+            logging.debug('exception %s %r' % (type(e), e))
             return '', None
-        
-        
-        
-        
-    
-    
-    
-    
+

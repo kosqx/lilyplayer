@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 import time
 import threading
+import logging
 
 import pygst
 pygst.require("0.10")
@@ -174,9 +175,7 @@ class GStreamerPlayer(Player):
             self.player._cb_sync_message(bus, message)
             
         def on_notify(self, bus, message):
-            pass
-            print 'on_notify --'
-            print a
+            logging.debug('player.on_nofify')
             #self.player._cb_sync_message(bus, message)
             
         def on_notify_source(self, bus, message):
@@ -290,41 +289,41 @@ class GStreamerPlayer(Player):
     def _cb_message(self, bus, message):
         t = message.type
         
-        #print '('*100, t
-        
         if t == gst.MESSAGE_ASYNC_DONE:
-            pass
+            logging.debug('MESSAGE_ASYNC_DONE')
         elif t == gst.MESSAGE_EOS:
+            logging.debug('MESSAGE_EOS')
             self._was_eos = True
             self._player.set_state(gst.STATE_NULL)
         elif t == gst.MESSAGE_ERROR:
+            err, debug = message.parse_error()
+            logging.debug('MESSAGE_ERROR: %r' % str(err).decode("utf8", 'replace'))
+            
             self._was_eos = True
             self._player.set_state(gst.STATE_NULL)
             
-            err, debug = message.parse_error()
-            print str(err).decode("utf8", 'replace')
+            
 
             
         elif t == gst.MESSAGE_TAG:
-            pass
-            print 'MESSAGE_TAG', '-' * 100
-            print 'message', message
-            print 'flags', message.type
-            print 'dir()', dir(message)
-            for i in dir(message):
-                obj = getattr(message, i)
-                if not i.startswith('__') and callable(obj):
-                    try:
-                        print i,'\t\t', obj()
-                    except:
-                        print i,'\t\t', obj
-                else:
-                    print i,'\t\t', obj
+            #print 'MESSAGE_TAG', '-' * 100
+            #print 'message', message
+            #print 'flags', message.type
+            #print 'dir()', dir(message)
+            #for i in dir(message):
+            #    obj = getattr(message, i)
+            #    if not i.startswith('__') and callable(obj):
+            #        try:
+            #            print i,'\t\t', obj()
+            #        except:
+            #            print i,'\t\t', obj
+            #    else:
+            #        print i,'\t\t', obj
             taglist = message.parse_tag()
-            print 'on_tag:'
+            #print 'on_tag:'
             for key in taglist.keys():
                 self.metadata[key] = taglist[key]
-                print '\t%s = %s' % (key, taglist[key])
+                logging.info('MESSAGE_TAG: %s = %s' % (key, taglist[key]))
 
     def _cb_sync_message(self, bus, message):
         if message.structure is None:
@@ -336,9 +335,6 @@ class GStreamerPlayer(Player):
             imagesink.set_xwindow_id(self._xid)
             
     def _cb_notify_source(self, pad, args):
-        print '^' * 400
-        
-        
         caps = pad.get_negotiated_caps()
         if not caps:
             pad.info("no negotiated caps available")
@@ -348,7 +344,7 @@ class GStreamerPlayer(Player):
         # We now get the total length of that stream
         #q = gst.query_new_duration(gst.FORMAT_TIME)
         #pad.info("sending duration query")
-        #if pad.get_peer().query(q):
+        #if pad.get_peer().query(q)
         #    format, length = q.parse_duration()
         #    if format == gst.FORMAT_TIME:
         #        pad.info("got duration (time) : %s" % (gst.TIME_ARGS(length),))
@@ -446,14 +442,12 @@ class GStreamerPlayer(Player):
         #self._player.set_property('subtitle_encoding', 'utf-8')
         
         if True:
-            print 'audio', self._player.props.current_audio
-            print 'text ', self._player.props.current_text 
-            print 'video', self._player.props.current_video
+            logging.debug('stream audio %r' % self._player.props.current_audio)
+            logging.debug('stream text  %r' % self._player.props.current_text)
+            logging.debug('stream video %r' % self._player.props.current_video)
             
             #if self._player.props.current_text >= 0:
             #    self._player.props.current_text = -1
-            
-            print
             
             for i in self._player.props.stream_info_value_array:
                 if i.props.type.value_nick == 'video':
@@ -463,21 +457,20 @@ class GStreamerPlayer(Player):
                     self.audio.codec = i.props.codec
                     self.metadata['audio-codec'] = i.props.codec
                 
-                print 'nick   ', i.props.type.value_nick
-                print 'codec  ', i.props.codec
-                print 'decoder', i.props.language_code
-                print 'lang   ', i.props.language_code
-                print 'mute   ', i.props.mute
-                print 'caps   ', i.props.caps.to_string()
+                logging.debug('nick    %r' % i.props.type.value_nick)
+                logging.debug('codec   %r' % i.props.codec)
+                logging.debug('decoder %r' % i.props.language_code)
+                logging.debug('lang    %r' % i.props.language_code)
+                logging.debug('mute    %r' % i.props.mute)
+                logging.debug('caps    %r' % i.props.caps.to_string())
                 
                 try:
                     caps = i.props.caps
-                    print 'audiorate', caps[0]["rate"]
-                    print 'audiowidth', caps[0]["width"]
-                    print 'audiochannels', caps[0]["channels"]
+                    logging.debug('audiorate     %r' % caps[0]["rate"])
+                    logging.debug('audiowidth    %r' % caps[0]["width"])
+                    logging.debug('audiochannels %r' % caps[0]["channels"])
                 except:
-                    print 'except'
-                print 
+                    logging.warning('except in caps')
             
             def gst_framerate_to_float(framerate):
                 return float(framerate.num) / float(framerate.denom)
@@ -489,7 +482,7 @@ class GStreamerPlayer(Player):
                 caps = self._player.props.frame.get_caps()[0]
                 
                 for name in caps.keys():
-                    print name, caps[name]
+                    logging.debug('frame caps: %r = %r' % (name, caps[name]))
                 
                 self.video.width     = caps['width']
                 self.video.height    = caps['height']
@@ -505,19 +498,19 @@ class GStreamerPlayer(Player):
                 r = gst.registry_get_default()
                 l = [x for x in r.get_feature_list(gst.ElementFactory) if (gst.ElementFactory.get_klass(x) == "Visualization")]
                 for v in l:
-                    print 'Visualization', v.get_name()
+                    logging.debug('Visualization %r' % v.get_name())
                 #e = [y for y in l if (y.get_name() == self.visualization_name)] 
                 e = l
                 if e:
                     visplug = gst.element_factory_make(e[0].get_name())
-                    print e, visplug
+                    logging.debug('vis-plugin %r %r' % (e, visplug))
                     self._player.set_property('vis-plugin', visplug)
             
             el = self._player.elements()
             try:
                 while True:
                     next = el.next()
-                    print 'str < %r >   \tname <%r>' %  (str(next), next.props.name)
+                    logging.debug('element %-30s %s' %  (next.props.name, str(next)))
             except StopIteration:
                 pass
         

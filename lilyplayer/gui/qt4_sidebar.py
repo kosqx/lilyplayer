@@ -19,6 +19,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
+import logging
+
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -33,7 +35,6 @@ class PlaylistModel(QAbstractTableModel):
         super(PlaylistModel, self).__init__()
         self.controler = controler
         self.playlist = controler.playlist
-        print 'PlaylistModel id', id(self.playlist)
         self.dirty = False
         self.columns = {
             'name': 0,
@@ -91,7 +92,7 @@ class PlaylistModel(QAbstractTableModel):
 
 
     def rowCount(self, index=QModelIndex()):
-        print len(self.playlist)
+        logging.debug('playlist length: %r' % len(self.playlist))
         return len(self.playlist)
 
 
