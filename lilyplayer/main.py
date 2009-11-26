@@ -120,7 +120,7 @@ class MenuItem(object):
         
         return result
 
-class Controler(object):
+class Controller(object):
     arguments_table = []
     
     main_menu = MenuItem('', submenu=[
@@ -132,7 +132,7 @@ class Controler(object):
         ]),
         MenuItem('View', submenu=[
             MenuItem('Sidebar', cmd='view-sidebar toggle'),
-            MenuItem('fullscreen', cmd='fullscreen toggle'),
+            MenuItem('Fullscreen', cmd='fullscreen toggle'),
         ]),
         
         MenuItem('Playback', submenu=[
@@ -203,15 +203,15 @@ class Controler(object):
         if keys in shortcuts:
             msg = shortcuts[keys]
             self.dispatch(msg)
-
+    
+    def get_version(self):
+        return '.'.join(str(i) for i in __version__)
+    
     def on_start(self):
-        #self.playlist = Playlist(sys.argv[1:])
-        
         self.open_item(self.playlist.next())
-        
-
+    
     def on_timer(self):
-        if self.player.state == 'finish':
+        if self.player_get_state() == 'finish':
             self.playlist_next()
             #next = self.playlist.next()
             #self.open_item(next)
@@ -235,7 +235,7 @@ class Controler(object):
     
     def open_item(self, item):
         if item:
-            self.player.stop()
+            self.player_stop()
             
             #self.gui.window.setWindowTitle("%s - Lily Player"  % item.name)
             #self.gui.do_set_title("%s - Lily Player"  % item.name)
@@ -252,12 +252,12 @@ class Controler(object):
                 except Exception, e:
                     logging.debug('Subtitle loading failed: %r' % e)
                 
-            self.play()
+            self.player_play()
             self.signal.emit('media-opened')
             self.info_media_filename = item.filename
         else:
             self.gui.do_set_title("Lily Player")
-            self.player.stop()
+            self.player_stop()
 
 
     def update_title(self):
@@ -267,46 +267,46 @@ class Controler(object):
         else:
             self.gui.do_set_title(u"Lily Player")
    
-    def play(self):
+    def player_play(self):
         self.player.play()
         self.update_title()
     
-    def pause(self):
+    def player_pause(self):
         self.player.pause()
         self.update_title()
-    def stop(self):
+    def player_stop(self):
         self.player.stop()
         self.update_title()
-    def toggle(self):
+    def player_toggle(self):
         self.player.toggle()
         self.update_title()
         
-    def get_state(self):
+    def player_get_state(self):
         return self.player.state
-    def set_state(self, value):
+    def player_set_state(self, value):
         self.player.state = value
         
-    def get_mute(self):
+    def player_get_mute(self):
         return self.player.mute
-    def set_mute(self, value=None):
+    def player_set_mute(self, value=None):
         self.player.mute = value
         
-    def get_volume(self):
+    def player_get_volume(self):
         return self.player.volume
-    def set_volume(self, value):
+    def player_set_volume(self, value):
         self.player.volume = value
         
-    def get_position(self):
+    def player_get_position(self):
         return self.player.position
-    def set_position(self, value):
+    def player_set_position(self, value):
         self.player.position = value
 
-    def get_position_fraction(self):
+    def player_get_position_fraction(self):
         return self.player.position_fraction
-    def set_position_fraction(self, value):
+    def player_set_position_fraction(self, value):
         self.player.position_fraction = value
         
-    def get_duration(self):
+    def player_get_duration(self):
         return self.player.duration
 
 
@@ -415,7 +415,7 @@ class Controler(object):
         
         saved_pos = self.player.position_fraction
         saved_state = self.player.state
-        self.player.pause()
+        self.player_pause()
         
         result = []
         
@@ -547,19 +547,19 @@ class Controler(object):
     
     @args(arguments_table, 'play')
     def cmd_play(self):
-        self.player.play()
+        self.player_play()
     
     @args(arguments_table, 'pause')
     def cmd_pause(self):
-        self.player.pause()
+        self.player_pause()
     
     @args(arguments_table, 'stop')
     def cmd_stop(self):
-        self.player.stop()
+        self.player_stop()
     
     @args(arguments_table, 'toggle')
     def cmd_toggle(self):
-        self.player.toggle()
+        self.player_toggle()
     
     @args(arguments_table, 'fullscreen', EnumArg({'on': True, 'off': False}))
     def cmd_fullscreen_enum(self, enum):
@@ -587,6 +587,7 @@ class Controler(object):
     def cmd_view_sidebar(self, enum):
         self.view_sidebar(enum)
 
+
 def main():
     logging.basicConfig(
         level=logging.DEBUG, #logging.INFO,
@@ -595,8 +596,8 @@ def main():
     )
     logging.info('LilyPlayer v%s starting' % '.'.join(str(i) for i in __version__))
     
-    controler = Controler() 
-    controler.exec_()
+    controller = Controller()
+    controller.exec_()
 
 if __name__ == '__main__':
     main()

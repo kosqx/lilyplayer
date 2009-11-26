@@ -30,6 +30,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 
+
 import lilyplayer.settings as settings
 import lilyplayer.utils.utils as utils
 
@@ -40,10 +41,10 @@ from qt4_sidebar import GuiSidebar
 
 
 class GuiMainWindow(QMainWindow):
-    def __init__(self, controler):
+    def __init__(self, controller):
         QMainWindow.__init__(self)
         self.setMouseTracking(True)
-        self.controler = controler
+        self.controller = controller
     
     def keyPressEvent(self, event):
         keys = key_event_to_str(event)
@@ -75,7 +76,7 @@ class GuiMainWindow(QMainWindow):
         event.accept()
         # TODO: doubleClick(x,y)
         # self.emit(SIGNAL('doubleClick()'))
-        self.controler.set_fullscreen()
+        self.controller.set_fullscreen()
         logging.debug('doubleClickEvent %r' % event.globalPos())
     
     def contextMenuEvent(self, event):
@@ -101,16 +102,16 @@ class GuiMainWindow(QMainWindow):
             event.acceptProposedAction()
             event.setDropAction(Qt.CopyAction)
             logging.debug('dropEvent urls: %r' % urls)
-            self.controler.open(urls[0])
+            self.controller.open(urls[0])
         else:
             event.ignore()
 
 
 class GuiMovieWindow(QWidget):
-    def __init__(self, parent, controler):
+    def __init__(self, parent, controller):
         QMainWindow.__init__(self, parent)
         self.setMouseTracking(True)
-        self.controler = controler
+        self.controller = controller
         
         self.setAcceptDrops(True)
         
@@ -190,16 +191,16 @@ class GuiThumbinalDialog(object):
 #QWidget.contextMenuEvent (self, QContextMenuEvent)
 
 class GuiMain(QApplication):
-    def __init__(self, controler=None): 
+    def __init__(self, controller=None): 
         QApplication.__init__(self, sys.argv)
         
-        self.controler = controler
+        self.controller = controller
 
         
         
         self.setWindowIcon(QIcon(settings.get_path('data', 'mainicon.png')))
         
-        self.window = GuiMainWindow(self.controler)
+        self.window = GuiMainWindow(self.controller)
         
         # work - only on systems with support of this
         #self.window.setWindowOpacity(0.5)
@@ -221,7 +222,7 @@ class GuiMain(QApplication):
 
         
 
-        self.movie_window = GuiMovieWindow(self.window, self.controler)
+        self.movie_window = GuiMovieWindow(self.window, self.controller)
         
         self.markup_window = GuiMarkupWindow(self.movie_window)
         self.markup_window.set_style({'font-size': 32, 'border-width': 1})
@@ -229,7 +230,7 @@ class GuiMain(QApplication):
         #self.markup_window.setParent(self.movie_window, Qt.Tool)
         self.markup_window.show()
         
-        self.sidebar = GuiSidebar(self.window, controler)
+        self.sidebar = GuiSidebar(self.window, controller)
         
         self.splitter = QSplitter(Qt.Horizontal)
         self.splitter.addWidget(self.movie_window)
@@ -237,7 +238,7 @@ class GuiMain(QApplication):
         
         self.central.layout().addWidget(self.splitter)
         
-        self.controls = PlayControls(self.window, self.controler)
+        self.controls = PlayControls(self.window, self.controller)
         self.central.layout().addWidget(self.controls)
         
         self.window.setAcceptDrops(True)
@@ -253,17 +254,17 @@ class GuiMain(QApplication):
         QObject.connect(self.markup_timer, SIGNAL("timeout()"), self.on_markup_timer) 
     
     def key(self, keys):
-        self.controler.keyboard_shortcut(str(keys))
+        self.controller.keyboard_shortcut(str(keys))
 
     def autoopen(self):
-        self.controler.on_start()
+        self.controller.on_start()
 
         self.ctimer = QTimer()
         self.ctimer.start(250)
         QObject.connect(self.ctimer, SIGNAL("timeout()"), self.on_timer)
     
     def on_timer(self):
-        self.controler.on_timer()
+        self.controller.on_timer()
         
     def on_markup_timer(self):
         pass
@@ -271,7 +272,7 @@ class GuiMain(QApplication):
         #print self.movie_window.height(), self.markup_window.height()
         
         #self.markup_window.set_text('%s' % time.strftime('%H:%M:%S'))
-        self.markup_window.set_text(self.controler.get_current_subtitle())
+        self.markup_window.set_text(self.controller.get_current_subtitle())
         
         x = self.movie_window.width() - self.markup_window.width()
         y = self.movie_window.height() - self.markup_window.height()
@@ -282,7 +283,7 @@ class GuiMain(QApplication):
         text = str(self.entry.text())
         self.entry.setText('')
        
-        self.controler.dispatch(text)
+        self.controller.dispatch(text)
         
     def do_set_title(self, title):
         self.window.setWindowTitle(title)
@@ -383,7 +384,7 @@ class GuiMain(QApplication):
     
     
     def on_menu_item(self, cmd, *skip):
-        self.controler.dispatch(cmd)
+        self.controller.dispatch(cmd)
 
     def update_menu(self, data):
         def add(root, data):

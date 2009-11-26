@@ -27,6 +27,7 @@ import logging
 
 
 import imdb
+from mako.template import Template
 
 
 import lilyplayer.settings as settings
@@ -36,14 +37,14 @@ import lilyplayer.utils.utils as utils
 Todo
 import lilyplayer.info as info
 
-self.movie_info = info.MovieInfo(country=['usa', 'pl'])
+self.movie_info = info.MediaInfo(country=['usa', 'pl'])
 
 return 
 
 '''
 
 
-class MovieInfoException(Exception):
+class MediaInfoException(Exception):
     pass
 
 
@@ -106,150 +107,12 @@ class MovieCache():
         self._data[key] = value
         if key in self._keys:
             pass
-            
-            
-    
-        
 
-class MovieInfo():
-    def get_info(self):
-        file_hash = make_file_hash(filename)
-        
-        img = None
-        info_path_img = settings.get_path('~', 'cache', file_hash, 'cover.jpg')
-        if utils.File(info_path_img).exists():
-            img = utils.File(info_path_img).read()
-            
-        info_path_data = settings.get_path('~', 'cache', file_hash, 'info.db')
-        if utils.File(info_path_data).exists():
-            return utils.File(info_path_data).read(), img
-        
-       
-        try:
-        
-            logging.debug('start')
-            
-            name, season, episodes =  self._filename2title(filename)
-            ia = imdb.IMDb()
-            ir = ia.search_movie(name)
-            if not ir:
-                return ''
-            
-            
-            # select item using rating 
-            
-            if season is None:
-                rate_kind = 'movie'
-            else:
-                rate_kind = 'tv series'
 
-            rate_list = []
-            
-            for item in ir:
-                rate_val = (item['kind'] != rate_kind) * 10
-                rate_val += utils.levenshtein_distance(name, item['title'].lower()) * 2
-                try:
-                    rate_val += abs(item['year'] - 2005)
-                except KeyError:
-                    pass
-                rate_list.append((rate_val, item))
-                #print item.items()
-            rate_list.sort()
-            
-            logging.debug('Rated list %r' % rate_list)
-            
-            self.movie = rate_list[0][1]
-            
-            
-            
-            
-            #self.movie = ir[0]
-            
-            ia.update(self.movie)
-            
-            # ia.update(im, 'release_dates')
-            # im['release dates']
-            # [u'USA::11 December 2005 (Austin Butt-Numb-A-Thon)', u'Poland::7 April 2006']
-
-            self.result = []
-            
-    
-            #self.add('<h1>%(canonical title)s</h1>')
-            self.add('<h1>%(title)s</h1>')
-            
-            if self.movie['kind'] == 'tv series' and season is not None:
-                ia.update(self.movie, 'episodes')
-                ep = self.movie['episodes'][season][episodes[0]]
-                #ia.update(ep)
-                self.add('<h2>%s</h2>' % ep['title'])
-                self.add('<b>Season %s Episode %s</b>', (ep['season'], ep['episode']))
-            
-            self.add('<a href="http://www.google.com">Google</a>')
-            
-            #self.add('<img src="%(cover url)s">')
-            self.add('<br/><img src="mem://image"/>')
-            self.add('<table>')
-            self.add('<tr><td>Year</td><td>%(year)s</td></tr>')
-            try:
-                self.add('<tr><td>Runtime</td><td>%s min.</td></tr>', self.movie['runtime'][0])
-            except KeyError:
-                pass
-            self.add('<tr><td>Rating</td><td>%(rating)s</td></tr>')
-            self.add('<tr><td>Votes</td><td>%(votes)s</td></tr>')
-            try:
-                self.add('<tr><td>Languages</td><td>%s</td></tr>', ', '.join(self.movie['languages']))
-            except KeyError:
-                pass
-            self.add('<tr><td>Genres</td><td>%s</td></tr>', ', '.join(self.movie['genres']))
-            self.add('<tr><td>Countries</td><td>%s</td></tr>', ', '.join(self.movie['countries']))
-            
-            self.add('</table>')
-            self.add('<h2>Cast</h2>')
-            
-            self.add('<table>')
-            for actor in self.movie['cast'][:IMDbInfo.CAST_LIMIT]:
-                try:
-                    role = actor.currentRole['long imdb name']
-                except:
-                    role = ''
-                    #print actor.items()
-                    
-                self.add('<tr><td><b>%(name)s</b></td><td>%(role)s</td></tr>' % dict(
-                    name=actor['long imdb name'],
-                    role=role
-                ))
-            self.add('</table>')
-            
-            #print 'imdb end ' * 100
-            
-            try:
-                img = self._read_url(self.movie['cover url'])
-            except:
-                img = None
-            
-            
-            html = '\n'.join(self.result)
-            utils.File(info_path_data).write(html)
-            
-            if img:
-                utils.File(info_path_img).write(img)
-            
-            return html, img
-        
-        except Exception, e:
-            #print type(e), e
-            logging.debug('exception %r' % e)
-            return '', None
-    
-
-    
-
-class IMDbInfo:
-    
+class MediaInfo:
     CAST_LIMIT = 50
     
-    def _filename2title(self, filename):
-        
+    def filename2title(self, filename):
         series = [
             r's(?P<season>[0-9]+)(?P<episodes>(e[0-9]+)+)',
             r'(?P<season>[0-9]+)x(?P<episodes>([0-9]+)([-,][0-9]+)*)',
@@ -288,11 +151,9 @@ class IMDbInfo:
                 episodes = re.split('([0-9]+)', d['episodes'])
                 episodes = [int(i) for i in episodes[1::2]]
         
-        #print name
         for r in remove:
             # change to split
             name = re.sub(r, ' ', name)
-            #print name
         
         name = name.strip()
         
@@ -300,185 +161,218 @@ class IMDbInfo:
         
         return name, season, episodes
     
-    
-    
-    def add(self, format, data=None):
-        if data is None:
-            data = self.movie
-        try:
-            self.result.append(format % data)
-        except KeyError:
-            pass
-        
-        
     def _read_url(self, url):
         f = urllib.urlopen(url)
         data = f.read()
         f.close()
         return data
     
-    def download_info(self, name, year, season, episodes):
-        d = {}
-        
-        ia = imdb.IMDb()
-        ir = ia.search_movie(name)
-        
-        if season is None:
-            rate_kind = 'movie'
-        else:
-            rate_kind = 'tv series'
-
-        rate_list = []
-        
-        for item in ir:
-            rate_val = (item['kind'] != rate_kind) * 10
-            rate_val += utils.levenshtein_distance(name, item['title'].lower()) * 2
-            try:
-                rate_val += abs(item['year'] - 2005)
-            except KeyError:
-                pass
-            rate_list.append((rate_val, item))
-        
-        rate_list.sort()
-        movie = rate_list[0][1]
-        
-        d['title'] = movie['title']
-        d['kind'] = movie['title']
-        d['year']  = movie['year']
-        
-        
-        d['title'] = movie['title']
-        d['title'] = movie['title']
-            
-
-
     def get_info(self, filename):
+        # TODO: keyword arguments
+        # filename  - guest title from filename and search
+        # title     - search from title
+        # imdb_id   - internal IMDb id - instant movie info load - without search
+        
+        info = {}
+        
         logging.debug('get_info start')
         
         file_hash = make_file_hash(filename)
+        logging.debug('File hash: %r' % file_hash)
         
-        img = None
-        info_path_img = settings.get_path('~', 'cache', file_hash, 'cover.jpg')
-        if utils.File(info_path_img).exists():
-            img = utils.File(info_path_img).read()
-            
-        info_path_data = settings.get_path('~', 'cache', file_hash, 'info.db')
-        if utils.File(info_path_data).exists():
-            return utils.File(info_path_data).read(), img
+        name, season, episodes =  self.filename2title(filename)
         
-       
+        db = imdb.IMDb()
+        imdb_results = db.search_movie(name)
+        imdb_movie = imdb_results[0]
+        
+        info['kind'] = 'movie'
+        info['list'] = ['%s (%d)' % (i['title'], i['year']) for i in imdb_results]
+        logging.debug('imdb searched')
+        
+        db.update(imdb_movie)
+        
+        logging.debug('imdb updated')
+        
+        info['title'] = imdb_movie['title']
+        info['cover_url'] = imdb_movie['cover url']
+        info['year'] = imdb_movie['year']
         try:
-            logging.debug('imdb start')
-            
-            name, season, episodes =  self._filename2title(filename)
-            ia = imdb.IMDb()
-            ir = ia.search_movie(name)
-            if not ir:
-                return ''
-            
-            
-            # select item using rating 
-            
-            if season is None:
-                rate_kind = 'movie'
-            else:
-                rate_kind = 'tv series'
-
-            rate_list = []
-            
-            for item in ir:
-                #print item['kind']
-                rate_val = (item['kind'] != rate_kind) * 10
-                rate_val += utils.levenshtein_distance(name, item['title'].lower()) * 2
-                try:
-                    rate_val += abs(item['year'] - 2005)
-                except KeyError:
-                    pass
-                rate_list.append((rate_val, item))
-                #print item.items()
-            rate_list.sort()
-            
-            logging.debug('rate list %r' % rate_list)
-            
-            self.movie = rate_list[0][1]
-            
-            
-            
-            
-            #self.movie = ir[0]
-            
-            ia.update(self.movie)
-            
-            # ia.update(im, 'release_dates')
-            # im['release dates']
-            # [u'USA::11 December 2005 (Austin Butt-Numb-A-Thon)', u'Poland::7 April 2006']
-
-            self.result = []
-            
-    
-            #self.add('<h1>%(canonical title)s</h1>')
-            self.add('<h1>%(title)s</h1>')
-            
-            if self.movie['kind'] == 'tv series' and season is not None:
-                ia.update(self.movie, 'episodes')
-                ep = self.movie['episodes'][season][episodes[0]]
-                #ia.update(ep)
-                self.add('<h2>%s</h2>' % ep['title'])
-                self.add('<b>Season %s Episode %s</b>', (ep['season'], ep['episode']))
-            
-            self.add('<a href="http://www.google.com">Google</a>')
-            
-            #self.add('<img src="%(cover url)s">')
-            self.add('<br/><img src="mem://image"/>')
-            self.add('<table>')
-            self.add('<tr><td>Year</td><td>%(year)s</td></tr>')
-            try:
-                self.add('<tr><td>Runtime</td><td>%s min.</td></tr>', self.movie['runtime'][0])
-            except KeyError:
-                pass
-            self.add('<tr><td>Rating</td><td>%(rating)s</td></tr>')
-            self.add('<tr><td>Votes</td><td>%(votes)s</td></tr>')
-            try:
-                self.add('<tr><td>Languages</td><td>%s</td></tr>', ', '.join(self.movie['languages']))
-            except KeyError:
-                pass
-            self.add('<tr><td>Genres</td><td>%s</td></tr>', ', '.join(self.movie['genres']))
-            self.add('<tr><td>Countries</td><td>%s</td></tr>', ', '.join(self.movie['countries']))
-            
-            self.add('</table>')
-            self.add('<h2>Cast</h2>')
-            
-            self.add('<table>')
-            for actor in self.movie['cast'][:IMDbInfo.CAST_LIMIT]:
-                try:
-                    role = actor.currentRole['long imdb name']
-                except:
-                    role = ''
-                    #print actor.items()
-                    
-                self.add('<tr><td><b>%(name)s</b></td><td>%(role)s</td></tr>' % dict(
-                    name=actor['long imdb name'],
-                    role=role
-                ))
-            self.add('</table>')
-            
-            logging.debug('imdb end')
-            
-            try:
-                img = self._read_url(self.movie['cover url'])
-            except:
-                img = None
-            
-            
-            html = '\n'.join(self.result)
-            utils.File(info_path_data).write(html)
-            
-            if img:
-                utils.File(info_path_img).write(img)
-            
-            return html, img
+            info['time'] = imdb_movie['runtime'][0]
+        except KeyError:
+            pass
+        #info['time'] = imdb_movie['runtime'][0]
+        info['rating'] = imdb_movie['rating']
+        info['votes'] = imdb_movie['votes']
+        info['languages'] = imdb_movie['languages']
+        info['genres'] = imdb_movie['genres']
+        info['countries'] = imdb_movie['countries']
+        try:
+            info['plot'] = imdb_movie['plot'][0].rsplit('::', 1)[0]
+        except KeyError:
+            pass
         
-        except Exception, e:
-            logging.debug('exception %s %r' % (type(e), e))
-            return '', None
+
+        def character_to_dict(character):
+            try:
+                role = character.currentRole['long imdb name']
+            except:
+                role = ''
+            
+            return dict(
+                imdb_id=character.getID(),
+                name=character['long imdb name'],
+                role=role
+            )
+        
+        cast = []
+        for character in imdb_movie['cast'][:MediaInfo.CAST_LIMIT]:
+            cast.append(character_to_dict(character))
+
+            
+        
+        info['cast'] = cast
+        
+        
+        if imdb_movie['kind'] == 'tv series' and season is not None:
+            info['kind'] = 'series'
+            db.update(imdb_movie, 'episodes')
+            #db.update(imdb_movie, 'guests')
+            logging.debug('imdb episodes')
+            imdb_episode = imdb_movie['episodes'][season][episodes[0]]
+            db.update(imdb_episode, 'full credits')
+            info['season']        = imdb_episode['season']
+            info['episode']       = imdb_episode['episode']
+            info['episode_title'] = imdb_episode['title']
+            try:
+                info['episode_plot'] = imdb_episode['plot']
+            except KeyError:
+                pass
+            info['episode_air_date'] = imdb_episode['original air date']
+            #print imdb_episode['cast']
+            
+            
+            general_cast_ids = [i['imdb_id'] for i in info['cast']]
+            episode_cast = []
+            for character in imdb_episode['cast']:
+                if character.getID not in general_cast_ids:
+                    cast.append(character_to_dict(character))
+            
+            info['episode_cast'] = episode_cast
+            
+            #ia.update(ep)
+            #self.add('<h2>%s</h2>' % ep['title'])
+            #self.add('<b>Season %s Episode %s</b>', (ep['season'], ep['episode']))
+        
+        
+        logging.debug('imdb end')
+        return info
+    
+    def get_html(self, info):
+        #img = None
+        #info_path_img = settings.get_path('~', 'cache', file_hash, 'cover.jpg')
+        #if utils.File(info_path_img).exists():
+        #    img = utils.File(info_path_img).read()
+        #
+        #info_path_data = settings.get_path('~', 'cache', file_hash, 'info.db')
+        #if utils.File(info_path_data).exists():
+        #    return utils.File(info_path_data).read(), img
+        
+        mytemplate = Template(u'''
+<h1>${info['title']}</h1>
+
+% if info['kind'] == 'series':
+    <h2>${info['episode_title']}</h2><br />
+    <b>Season ${info['season']} Episode ${info['episode']}</b>
+% endif
+
+<br/><img src="mem://cover" />
+
+<table>
+    <tr>
+        <td>Year</td>
+        <td>${info['year']}</td>
+    </tr>
+    
+    % if 'time' in info:
+    <tr>
+        <td>Year</td>
+        <td>${info['time']} min.</td>
+    </tr>
+    % endif
+    
+    % if 'episode_air_date' in info:
+        <tr>
+            <td>Air date</td>
+            <td>${info['episode_air_date']}</td>
+        </tr>
+    % endif
+    
+    <tr>
+        <td>Rating</td>
+        <td>${info['rating']}</td>
+    </tr>
+    <tr>
+        <td>Votes</td>
+        <td>${info['votes']}</td>
+    </tr>
+    <tr>
+        <td>Languages</td>
+        <td>${', '.join(info['languages'])}</td>
+    </tr>
+    <tr>
+        <td>Genres</td>
+        <td>${', '.join(info['genres'])}</td>
+    </tr>
+    <tr>
+        <td>Countries</td>
+        <td>${', '.join(info['countries'])}</td>
+    </tr>
+</table>
+
+% if 'plot' in info:
+    <h2>Plot</h2>
+    <p>
+        ${info['plot']}
+    </p>
+% endif
+
+% if 'episode_plot' in info:
+    <h2>Episode plot</h2>
+    <p>
+        ${info['episode_plot'].encode('ascii', 'xmlcharrefreplace')}
+    </p>
+% endif
+
+<h2>Cast</h2>
+
+<table>
+    % for actor in info['cast']:
+        <tr>
+            <td><b>${actor['name']}</b></td>
+            <td>${actor['role']}</td>
+        </tr>
+    % endfor
+</table>
+<hr />
+% if 'episode_cast' in info and info['episode_cast']:
+    <table>
+        % for actor in info['episode_cast']:
+            <tr>
+                <td><b>${actor['name']}</b></td>
+                <td>${actor['role']}</td>
+            </tr>
+        % endfor
+    </table>
+% endif
+        ''')
+        
+        html = mytemplate.render(info=info)
+        data = {'cover': self._read_url(info['cover_url'])}
+        
+        #utils.File(info_path_data).write(html)
+        #if img:
+        #    utils.File(info_path_img).write(img)
+        
+        return html, data
 

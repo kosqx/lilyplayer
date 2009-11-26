@@ -31,10 +31,10 @@ import lilyplayer.info.imdb_info as imdb_info
 
 class PlaylistModel(QAbstractTableModel):
 
-    def __init__(self, controler):
+    def __init__(self, controller):
         super(PlaylistModel, self).__init__()
-        self.controler = controler
-        self.playlist = controler.playlist
+        self.controller = controller
+        self.playlist = controller.playlist
         self.dirty = False
         self.columns = {
             'name': 0,
@@ -100,7 +100,7 @@ class PlaylistModel(QAbstractTableModel):
         return 2
     
     def signal_doubleClicked(self, index):
-        self.controler.playlist_goto(index.row())
+        self.controller.playlist_goto(index.row())
 
 
 class NiceSlider(QWidget):
@@ -137,16 +137,24 @@ class NiceSlider(QWidget):
         return self._value
 
 
-class TabMetadata(QTextBrowser):
-    def __init__(self, parent, controler):
+class TabMetadata(QWidget):
+    def __init__(self, parent, controller):
         super(TabMetadata, self).__init__(parent)
-        self.controler = controler
-        self.setHtml("<h1>Metadata</h1>")
+        self.controller = controller
+        self.controller.signal.connect('media-opened', self.on_opened)
         
-        self.controler.signal.connect('media-opened', self.on_opened)
+        layout = QVBoxLayout()
+        self.setLayout(layout)
         
+        self.browser = QTextBrowser()
+        self.browser.setHtml("<h1>Metadata</h1>")
+        layout.addWidget(self.browser)
+        
+        #self.bottom = QWidget()
+        
+    
     def on_opened(self, *a):
-        self.setHtml(self._metadata_to_html(self.controler.get_meta_data()))
+        self.browser.setHtml(self._metadata_to_html(self.controller.get_meta_data()))
     
     def _metadata_to_html(self, md):
         result=['<h1>%s</h1>' % md[0]]
@@ -162,59 +170,106 @@ class TabMetadata(QTextBrowser):
         return '\n'.join(result)
 
 
-class TabInfo(QTextBrowser):
-    def __init__(self, parent, controler):
+class TabInfo(QWidget):
+    def __init__(self, parent, controller):
         super(TabInfo, self).__init__(parent)
-        self.controler = controler
-        #self.tab_info.document().setDefaultStyleSheet(css)
-        self.setOpenExternalLinks(True)
-        self.setHtml("<h1>Info</h1>")
+        self.controller = controller
+        self.controller.signal.connect('media-opened', self.on_opened)
         
-        self.controler.signal.connect('media-opened', self.on_opened)
+        layout = QVBoxLayout()
+        layout.setMargin(0)
+        layout.setSpacing(0)
+        self.setLayout(layout)
         
+        self.browser = QTextBrowser()
+        self.browser.setOpenExternalLinks(True)
+        self.browser.setHtml("<h1>Info</h1>")
+        #self.browser.document().setDefaultStyleSheet(css)
+        layout.addWidget(self.browser)
+        
+        self.menu = QMenu()
+        #self.menu.
+        action = self.menu.addAction("Ala ma kota")
+        
+        self.button = QPushButton(u"Reload")
+        self.button.setMenu(self.menu)
+        layout.addWidget(self.button)
+        
+        #self.imdb = imdb_info.IMDbInfo()
+        self.imdb = imdb_info.MediaInfo()
+    
+    def _set_menu(self, items):
+        self.menu.clear()
+        
+        for item in items:
+            self.menu.addAction(item)
+        
+        #self.button.setMenu(self.menu)
+    
     def on_opened(self, *a):
         class InfoThread(QThread): 
             def __init__(self, parent):
                 QThread.__init__(self, parent)
                 self.parent = parent
             
-            def run(self): 
-                self.parent._info_text, self.parent._info_img = imdb_info.IMDbInfo().get_info(self.parent.controler.player.filename)
+            def run(self):
+                logging.debug('player.filename %r' % self.parent.controller.player.filename)
+                #self.parent._info_text, self.parent._info_img = imdb_info.IMDbInfo().get_html(self.parent.controller.player.filename)
+                self.parent._info = self.parent.imdb.get_info(self.parent.controller.player.filename)
+                #self.parent._info = imdb_info.IMDbInfo().get_html(self.parent.controller.player.filename)
         
-        self.setHtml('<b>loading...</b>')
+        self.browser.setHtml('<b>loading...</b>')
         
         self._info_thread =  InfoThread(self)
         self.connect(self._info_thread, SIGNAL("finished()"), self._set_info_text)
         self._info_thread.start()
         
+    #def _set_info_text(self):
+    #    if self._info_text:
+    #        if self._info_img is not None:
+    #            img = QImage()
+    #            img.loadFromData(self._info_img)
+    #            self.browser.document().addResource(
+    #                QTextDocument.ImageResource,
+    #                QUrl("mem://image"),
+    #                QVariant(img)
+    #            )
+    #        
+    #        self.browser.setHtml(self._info_text)
+    #    else:
+    #        self.browser.setHtml('<b>Not Found</b>')
+    
     def _set_info_text(self):
-        if self._info_text:
-            if self._info_img is not None:
+        if self._info:
+            import pprint
+            #self.browser.setText(pprint.pformat(self._info))
+            self._set_menu(self._info['list'])
+            html, data = self.imdb.get_html(self._info)
+            for d in data:
                 img = QImage()
-                img.loadFromData(self._info_img)
-                self.document().addResource(
+                img.loadFromData(data[d])
+                self.browser.document().addResource(
                     QTextDocument.ImageResource,
-                    QUrl("mem://image"),
+                    QUrl("mem://" + d),
                     QVariant(img)
                 )
-            
-            self.setHtml(self._info_text)
+            self.browser.setHtml(html)
         else:
-            self.setHtml('<b>Not Found</b>')
+            self.browser.setHtml('<b>Not Found</b>')
 
 
 class TabPlaylist(QTableView):
-    def __init__(self, parent, controler):
+    def __init__(self, parent, controller):
         super(TabPlaylist, self).__init__(parent)
-        self.controler = controler
+        self.controller = controller
         
-        self.list_model = PlaylistModel(controler)
+        self.list_model = PlaylistModel(controller)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setGridStyle(Qt.NoPen)
         self.connect(self, SIGNAL("doubleClicked(QModelIndex)"), self.list_model.signal_doubleClicked)
         self.setModel(self.list_model)
         
-        self.controler.signal.connect('playlist', self.playlist_update)
+        self.controller.signal.connect('playlist', self.playlist_update)
         
     def playlist_update(self, *a):
         self.setModel(None)
@@ -222,15 +277,15 @@ class TabPlaylist(QTableView):
 
 
 class TabSubtitles(QWidget):
-    def __init__(self, parent, controler):
+    def __init__(self, parent, controller):
         super(TabSubtitles, self).__init__(parent)
-        self.controler = controler
+        self.controller = controller
 
 
 class TabSettings(QWidget):
-    def __init__(self, parent, controler):
+    def __init__(self, parent, controller):
         super(TabSettings, self).__init__(parent)
-        self.controler = controler
+        self.controller = controller
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -242,9 +297,9 @@ class TabSettings(QWidget):
 
 
 class GuiSidebar(QTabWidget):
-    def __init__(self, parent, controler):
+    def __init__(self, parent, controller):
         QTabWidget.__init__(self, parent)
-        self.controler = controler
+        self.controller = controller
         
         css = """
         table {border-color: black; border-style: solid;}
@@ -253,11 +308,11 @@ class GuiSidebar(QTabWidget):
         h2 {color: blue; background-color:#ddd; margin-bottom:0px;}
         """
         
-        self.tab_info = TabInfo(self, controler)
-        self.tab_meta = TabMetadata(self, controler)
-        self.tab_list = TabPlaylist(self, controler)
-        self.tab_subs = TabSubtitles(self, controler)
-        self.tab_sett = TabSettings(self, controler)
+        self.tab_info = TabInfo(self, controller)
+        self.tab_meta = TabMetadata(self, controller)
+        self.tab_list = TabPlaylist(self, controller)
+        self.tab_subs = TabSubtitles(self, controller)
+        self.tab_sett = TabSettings(self, controller)
         
         self.addTab(self.tab_info, "Info")
         self.addTab(self.tab_meta, "Meta")

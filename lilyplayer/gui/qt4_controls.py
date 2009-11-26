@@ -31,17 +31,17 @@ import lilyplayer.utils.utils as utils
 
 
 class PlayControls(QWidget):
-    def __init__(self, parent, controler):
+    def __init__(self, parent, controller):
         QWidget.__init__(self, parent)
         
         self.setAcceptDrops(True)
         
-        self.controler = controler
+        self.controller = controller
         self.actions = {}
         
         self._load_theme()
         
-        self.controler.signal.connect('theme', self.on_theme)
+        self.controller.signal.connect('theme', self.on_theme)
 
     def _load_theme(self):
         pos_data = utils.File(settings.get_path('themes', settings.get('gui.theme'), 'controls.txt')).read()
@@ -133,17 +133,17 @@ class PlayControls(QWidget):
         
         
     def _command(self, name, x, size):
-        if self.controler is not None:
+        if self.controller is not None:
             if name == 'mute':
-                self.controler.set_mute()
+                self.controller.player_set_mute()
             elif name == 'play':
-                self.controler.toggle()
+                self.controller.player_toggle()
             elif name == 'full':
-                self.controler.set_fullscreen()
+                self.controller.set_fullscreen()
             elif name == 'volume':
-                self.controler.set_volume(1.0 * x / (size - 1))
+                self.controller.player_set_volume(1.0 * x / (size - 1))
             elif name == 'position':
-                self.controler.set_position_fraction(1.0 * x / (size - 1))
+                self.controller.player_set_position_fraction(1.0 * x / (size - 1))
             
             self.update()
         
@@ -165,8 +165,8 @@ class PlayControls(QWidget):
     def minimumSizeHint(self):
         return QSize(320, self._pixmap.height())
     
-    def _redraw(self, controler):
-        self.controler = controler
+    def _redraw(self, controller):
+        self.controller = controller
         self.update()
     
     def paintEvent(self, event=None):
@@ -175,14 +175,14 @@ class PlayControls(QWidget):
         
         d = dict(time='00:00:00', duration='00:00:00', position=0.0, volume=1.0, play='p', mute='m', full='f')
         
-        if self.controler is not None:
-            ctr = self.controler
-            d['time']     = str(ctr.get_position())
-            d['duration'] = str(ctr.get_duration())
-            d['position'] = ctr.get_position_fraction()
-            d['volume']   = ctr.get_volume()
-            d['play']     = 'pP'[ctr.get_state() == 'play']
-            d['mute']     = 'mM'[ctr.get_mute()]
+        if self.controller is not None:
+            ctr = self.controller
+            d['time']     = str(ctr.player_get_position())
+            d['duration'] = str(ctr.player_get_duration())
+            d['position'] = ctr.player_get_position_fraction()
+            d['volume']   = ctr.player_get_volume()
+            d['play']     = 'pP'[ctr.player_get_state() == 'play']
+            d['mute']     = 'mM'[ctr.player_get_mute()]
             d['full']     = 'fF'[ctr.get_fullscreen()]
 
         spec = self._makeSpec(**d)
