@@ -29,6 +29,17 @@ from PyQt4.QtGui import *
 import lilyplayer.info.imdb_info as imdb_info
 
 
+import sys
+if sys.version_info[:2] < (2, 5):
+    def partial(func, arg):
+        def callme():
+            return func(arg)
+        return callme
+else:
+    from functools import partial
+
+
+
 class PlaylistModel(QAbstractTableModel):
 
     def __init__(self, controller):
@@ -258,22 +269,125 @@ class TabInfo(QWidget):
             self.browser.setHtml('<b>Not Found</b>')
 
 
-class TabPlaylist(QTableView):
+class TabPlaylist(QWidget):
     def __init__(self, parent, controller):
         super(TabPlaylist, self).__init__(parent)
         self.controller = controller
         
+        layout = QVBoxLayout()
+        layout.setMargin(0)
+        layout.setSpacing(0)
+        self.setLayout(layout)
+        
+        
+        self.menu = QMenuBar()
+        layout.addWidget(self.menu)
+        
+        fileMenu = self.menu.addMenu('File')
+        fileMenu.addAction(self.createAction('Load playlist', self.on_playlist_load))
+        fileMenu.addAction(self.createAction('Save playlist', self.on_playlist_save))
+        
+        addMenu = self.menu.addMenu('Add')
+        addMenu.addAction(self.createAction('Add file',      self.on_playlist_add_file))
+        addMenu.addAction(self.createAction('Add directory', self.on_playlist_add_directory))
+        addMenu.addAction(self.createAction('Add playlist',  self.on_playlist_add_playlist))
+     
+        sortMenu = self.menu.addMenu('Sort')
+        sortMenu.addAction(self.createAction('By Name',      partial(self.on_playlist_sort, 'name')))
+        sortMenu.addAction(self.createAction('By File Name', partial(self.on_playlist_sort, 'filename')))
+        sortMenu.addAction(self.createAction('Random',       partial(self.on_playlist_sort, 'random')))
+        sortMenu.addSeparator()
+        sortMenu.addAction(self.createAction('Reverse',      partial(self.on_playlist_sort, 'reverse')))
+        
+        modeMenu = self.menu.addMenu('Mode')
+        modeMenu.addAction(self.createAction('Default',      partial(self.on_playlist_mode, 'default')))
+        modeMenu.addAction(self.createAction('Shuffle',      partial(self.on_playlist_mode, 'shuffle')))
+        modeMenu.addAction(self.createAction('Repeat',       partial(self.on_playlist_mode, 'repeat')))
+        modeMenu.addAction(self.createAction('Repeat one',   partial(self.on_playlist_mode, 'repeat-one')))
+        
+        
         self.list_model = PlaylistModel(controller)
-        self.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.setGridStyle(Qt.NoPen)
-        self.connect(self, SIGNAL("doubleClicked(QModelIndex)"), self.list_model.signal_doubleClicked)
-        self.setModel(self.list_model)
+        
+        self.table = QTableView()
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setGridStyle(Qt.NoPen)
+        self.table.connect(self, SIGNAL("doubleClicked(QModelIndex)"), self.list_model.signal_doubleClicked)
+        self.table.setModel(self.list_model)
+        layout.addWidget(self.table)
+        
         
         self.controller.signal.connect('playlist', self.playlist_update)
         
+        
     def playlist_update(self, *a):
-        self.setModel(None)
-        self.setModel(self.list_model)
+        self.table.setModel(None)
+        self.table.setModel(self.list_model)
+
+
+    def on_playlist_load(self):
+        pass
+    
+    def on_playlist_save(self):
+        def save_dialog(caption, dir, formats):
+            build_exts = lambda exts: ' '.join("*.%s" % i.lower() for i in exts)
+            filters = ["%s (%s)" % (i[0], build_exts(i[1])) for i in formats]
+                
+            dialog = QFileDialog(self, caption, dir or ".", ';;'.join(filters))
+            
+            if dialog.exec_():
+                filename = unicode(dialog.selectedFiles()[0])
+                
+                filter = dialog.selectedFilter()
+                filter_index = filters.index(filter)
+                
+                selected_format = formats[filter_index]
+                if not filename.endswith(tuple(['.' + i for i in selected_format[1]])):
+                    filename += '.' + selected_format[1][0]
+                    format = selected_format[1][0]
+                else:
+                    format = filename.rsplit('.', 1)[-1]
+                
+                #print filename, filter, filter_index
+                return filename, format
+            else:
+                return None, None
+        
+        formats = self.controller.playlist.playlist_formats()
+        
+        filename, format = save_dialog("Save playlist", '.', formats)
+        self.controller.playlist.save(filename, format)
+        
+    def on_playlist_add_file(self):
+        pass
+    
+    def on_playlist_add_directory(self):
+        pass
+    
+    def on_playlist_add_playlist(self):
+        pass
+    
+    def on_playlist_sort(self, what):
+        self.controller.playlist.sort(what)
+        self.playlist_update()
+        
+    def on_playlist_mode(self, what):
+        self.controller.playlist.mode = what
+        #self.playlist_update()
+    
+    def createAction(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False, signal="triggered()"):
+        action = QAction(text, self)
+        if icon is not None:
+            action.setIcon(QIcon(":/%s.png" % icon))
+        if shortcut is not None:
+            action.setShortcut(shortcut)
+        if tip is not None:
+            action.setToolTip(tip)
+            action.setStatusTip(tip)
+        if slot is not None:
+            self.connect(action, SIGNAL(signal), slot)
+        if checkable:
+            action.setCheckable(True)
+        return action
 
 
 class TabSubtitles(QWidget):

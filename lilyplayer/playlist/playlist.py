@@ -22,25 +22,22 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 import os.path
 import random
+import logging
 
-#from lilyplayer.playlist.entry import PlaylistEntry
 
-class PlaylistItem(object):
-    def __init__(self, filename, name=None):
-        if filename.startswith(('file://', 'dvd://')):
-            self.filename = filename
-        else:
-            self.filename = os.path.abspath(filename)
-        if name:
-            self.name = name
-        else:
-            self.name = os.path.split(filename)[-1]
+from lilyplayer.playlist.item import PlaylistItem
+import lilyplayer.playlist.formats as formats
+import lilyplayer.utils.utils as utils
 
-    def __repr__(self):
-        return 'PlaylistItem(%r)' % self.filename
 
 class Playlist(object):
     def __init__(self, items):
+        self.formats = {}
+        for i in dir(formats):
+            obj = getattr(formats, i)
+            if obj.__class__.__name__ == 'type' and formats.PlaylistFormat in obj.mro()[1:]:
+                self.formats[obj.extension] = obj
+        
         self.items = []
         for item in items:
             self.append(item)
@@ -100,4 +97,49 @@ class Playlist(object):
             else:
                 self.current += 1
         return self.get()
+        
+    def sort(self, method):
+        methods = {
+            'random':   lambda i, o: random.random(),
+            'filename': lambda i, o: o.filename,
+            'name':     lambda i, o: o.name,
+            'reverse':  lambda i, o: -i,
+        }
+        if method not in methods:
+            return
+        
+        # standard Decorate-Sort-Undecorate
+        tmp = []
+        
+        for index, object in enumerate(self.items):
+            tmp.append((methods[method](index, object), index, object))
+        
+        tmp.sort()
+        
+        self.items = []
+        current = self.current
+        for new_index, (skip, index, object) in enumerate(tmp):
+            self.items.append(object)
+            if current == index:
+                self.current = new_index
+    
+    def playlist_formats(self):
+        return [("%s File" % i.upper(), [i]) for i in self.formats]
+        
+    def media_formats(self):
+        formats = [
+            ['avi'],
+            ['mp3'],
+        ]
+                
+    def save(self, filename, format):
+        try:
+            obj = self.formats[format]
+        except KeyError:
+            logging.warning('Format %r not supported' % format)
+            return None
+        
+        dump = obj.dumps(self.items)
+        utils.File(filename).write(dump)
+        
 
