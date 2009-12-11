@@ -30,6 +30,7 @@ import logging
 
 
 from lilyplayer.gui.qt4 import GuiMain
+from lilyplayer.gui.qt4_utils import MenuItem
 from lilyplayer.utils.play_time import Time
 from lilyplayer.player.player import Player
 from lilyplayer.utils.arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
@@ -81,44 +82,6 @@ class Signal(object):
     def disconnect(self, name, fun):
         pass
 
-
-class MenuItem(object):
-    @staticmethod
-    def text_to_name(text):
-        result = []
-        for c in text.lower():
-            if ('a' <= c <= 'z') or ('0' <= c <= '9'):
-                result.append(c)
-        return ''.join(result)
-    
-    def __init__(self, text, name=None, cmd=None, submenu=None):
-        self.text = text
-        if name:
-            self.name = name
-        else:
-            self.name = MenuItem.text_to_name(text)
-        
-        self.cmd     = cmd
-        self.submenu = submenu
-        
-    def is_item(self):
-        return self.cmd is not None
-    
-    def is_submenu(self):
-        return self.submenu is not None
-    
-    def is_separator(self):
-        return (self.cmd is None) and (self.submenu is None)
-    
-    def by_name(self, name):
-        result = []
-        
-        if self.submenu:
-            for item in self.submenu:
-                if name == item.name or (name.endswith(':') and item.name.startswith(name)):
-                    result.append(item)
-        
-        return result
 
 class Controller(object):
     arguments_table = []

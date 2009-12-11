@@ -28,6 +28,8 @@ from PyQt4.QtGui import *
 
 import lilyplayer.info.imdb_info as imdb_info
 
+from lilyplayer.gui.qt4_utils import create_action
+
 
 import sys
 if sys.version_info[:2] < (2, 5):
@@ -284,26 +286,27 @@ class TabPlaylist(QWidget):
         layout.addWidget(self.menu)
         
         fileMenu = self.menu.addMenu('File')
-        fileMenu.addAction(self.createAction('Load playlist', self.on_playlist_load))
-        fileMenu.addAction(self.createAction('Save playlist', self.on_playlist_save))
+        fileMenu.addAction(create_action(self, 'Load playlist', self.on_playlist_load))
+        fileMenu.addAction(create_action(self, 'Save playlist', self.on_playlist_save))
         
         addMenu = self.menu.addMenu('Add')
-        addMenu.addAction(self.createAction('Add file',      self.on_playlist_add_file))
-        addMenu.addAction(self.createAction('Add directory', self.on_playlist_add_directory))
-        addMenu.addAction(self.createAction('Add playlist',  self.on_playlist_add_playlist))
+        addMenu.addAction(create_action(self, 'Add file',      self.on_playlist_add_file))
+        addMenu.addAction(create_action(self, 'Add directory', self.on_playlist_add_directory))
+        addMenu.addAction(create_action(self, 'Add playlist',  self.on_playlist_add_playlist))
      
         sortMenu = self.menu.addMenu('Sort')
-        sortMenu.addAction(self.createAction('By Name',      partial(self.on_playlist_sort, 'name')))
-        sortMenu.addAction(self.createAction('By File Name', partial(self.on_playlist_sort, 'filename')))
-        sortMenu.addAction(self.createAction('Random',       partial(self.on_playlist_sort, 'random')))
+        sortMenu.addAction(create_action(self, 'By Name',      partial(self.on_playlist_sort, 'name')))
+        sortMenu.addAction(create_action(self, 'By File Name', partial(self.on_playlist_sort, 'filename')))
+        sortMenu.addAction(create_action(self, 'Random',       partial(self.on_playlist_sort, 'random')))
         sortMenu.addSeparator()
-        sortMenu.addAction(self.createAction('Reverse',      partial(self.on_playlist_sort, 'reverse')))
+        sortMenu.addAction(create_action(self, 'Reverse',      partial(self.on_playlist_sort, 'reverse')))
         
         modeMenu = self.menu.addMenu('Mode')
-        modeMenu.addAction(self.createAction('Default',      partial(self.on_playlist_mode, 'default')))
-        modeMenu.addAction(self.createAction('Shuffle',      partial(self.on_playlist_mode, 'shuffle')))
-        modeMenu.addAction(self.createAction('Repeat',       partial(self.on_playlist_mode, 'repeat')))
-        modeMenu.addAction(self.createAction('Repeat one',   partial(self.on_playlist_mode, 'repeat-one')))
+        modeMenu.addAction(create_action(self, 'Default',      partial(self.on_playlist_mode, 'default')))
+        modeMenu.addAction(create_action(self, 'Shuffle',      partial(self.on_playlist_mode, 'shuffle')))
+        modeMenu.addAction(create_action(self, 'Repeat',       partial(self.on_playlist_mode, 'repeat')))
+        modeMenu.addAction(create_action(self, 'Repeat one',   partial(self.on_playlist_mode, 'repeat-one')))
+        
         
         
         self.list_model = PlaylistModel(controller)

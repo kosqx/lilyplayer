@@ -23,13 +23,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
     Many simple tools but usefull in many places.
 """
 
+
 import re
 import os.path
-import unittest
+
 
 # ToDo: try remove this import and create own simple procedure
 from xml.sax.saxutils import quoteattr
 from StringIO import StringIO
+
 
 def clamp(value, min, max):
     if value < min:
@@ -196,11 +198,6 @@ def reduce_fraction(a,b):
             a, b = a / d, b / d
         d += 1
     return a,b
-    # TODO: unittest
-    # assert reduce_fraction(624, 352) == (39, 22)
-    # assert reduce_fraction(1920, 1080) == (16, 9)
-    # assert reduce_fraction(1920, 720) == (8, 3)
-
 
 
 def embedded_numbers(s):
@@ -216,5 +213,3 @@ def asdf(da):
     
     return ''.join(result)
 
-if __name__ == '__main__':
-    unittest.main()

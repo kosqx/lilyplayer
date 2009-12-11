@@ -14,6 +14,8 @@ Requirements
 - PyGStreamer 0.10
 - Qt 4.3
 - PyQt 4.3
+- Python Imaging Library (PIL) 1.1.6
+- IMDbPY 4.0
 
 Installation
 ------------
@@ -23,8 +25,8 @@ Installation
 
 Run examples
 ------------
-    lily 
-    lily filename.avi
+    lilyp 
+    lilyp filename.avi
 
 
 Features
