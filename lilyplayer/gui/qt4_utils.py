@@ -20,8 +20,21 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
 
+import sys
+
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+
+
+
+if sys.version_info[:2] < (2, 5):
+    def partial(func, arg):
+        def callme():
+            return func(arg)
+        return callme
+else:
+    from functools import partial
 
 
 class MenuItem(object):

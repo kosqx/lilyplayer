@@ -38,12 +38,12 @@ class Playlist(object):
             if obj.__class__.__name__ == 'type' and formats.PlaylistFormat in obj.mro()[1:]:
                 self.formats[obj.extension] = obj
         
+        self.current = None
+        self.mode = 'default'
+        
         self.items = []
         for item in items:
             self.append(item)
-        self.current = None
-        self.mode = 'default'
-    
     
     def __len__(self):
         return len(self.items)
@@ -66,14 +66,32 @@ class Playlist(object):
         else:
             return None
 
-    def append(self, filename):
-        self.items.append(PlaylistItem(filename))
-
-    def append_and_goto(self, filename):
-        self.items.append(PlaylistItem(filename))
-        self.current = len(self.items) - 1
+    def append(self, filename, index=None):
+        item = PlaylistItem(filename)
+        if index is None:
+            index = len(self.items)
+        self.items.insert(index, item)
+        if index <= self.current:
+            self.current += 1
+        return index
+    
+    def append_and_goto(self, filename, index=None):
+        self.current = self.append(filename, index)
         return self.get()
-
+    
+    def extend(self, filenames, index=None):
+        items = [PlaylistItem(filename) for filename in filenames]
+        if index is None:
+            index = len(self.items)
+        self.items[index:index] = items
+        if index <= self.current:
+            self.current += len(items)
+        return index
+        
+    def extend_and_goto(self, filenames, index=None):
+        self.current = self.extend(filenames, index)
+        return self.get()
+    
     def goto(self, index):
         self.current = index
         return self.get()

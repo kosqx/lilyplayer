@@ -226,7 +226,8 @@ class Controller(object):
     def update_title(self):
         item = self.playlist.get()
         if item:
-            self.gui.do_set_title(u"%s - Lily Player"  % unicode(item.name, 'utf8'))
+            name = item.name if isinstance(item.name, unicode) else unicode(item.name, 'utf8')
+            self.gui.do_set_title(u"%s - Lily Player"  % name)
         else:
             self.gui.do_set_title(u"Lily Player")
    
@@ -271,8 +272,8 @@ class Controller(object):
         
     def player_get_duration(self):
         return self.player.duration
-
-
+    
+    
 
     def get_current_subtitle(self):
         verses = self.subtitles.at(self.player.position)
@@ -328,14 +329,37 @@ class Controller(object):
         self.view['sidebar'] = value
         #print 'self.view', self.view
         
-
+    def playlist_get(self, index):
+        return self.playlist.get()
+    
     def playlist_goto(self, index):
+        logging.info('playlist_goto %d' % index)
         self.open_item(self.playlist.goto(index))
         self.signal.emit('playlist-goto')
     
     def playlist_next(self):
         self.open_item(self.playlist.next())
         self.signal.emit('playlist-next')
+        
+    def playlist_append(self, item, index=None):
+        self.playlist.append(item, index)
+        self.signal.emit('playlist-append')
+        
+    def playlist_append_and_goto(self, item, index=None):
+        self.playlist.append_and_goto(item, index)
+        self.signal.emit('playlist-append')
+        self.open_item(self.playlist.get())
+        self.signal.emit('playlist-goto')
+        
+    def playlist_extend(self, items, index=None):
+        self.playlist.extend(items, index)
+        self.signal.emit('playlist-append')
+        
+    def playlist_extend_and_goto(self, items, index=None):
+        self.playlist.extend_and_goto(items, index)
+        self.signal.emit('playlist-append')
+        self.open_item(self.playlist.get())
+        self.signal.emit('playlist-goto')
 
     def get_meta_data(self):
         structs = [

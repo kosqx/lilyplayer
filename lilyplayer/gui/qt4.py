@@ -93,18 +93,16 @@ class GuiMainWindow(QMainWindow):
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-        else:
-            event.ignore()
-
+    
     def dropEvent(self, event):
         if event.mimeData().hasUrls():
             urls = [unicode(i.path()) for i in event.mimeData().urls()]
             event.acceptProposedAction()
             event.setDropAction(Qt.CopyAction)
             logging.debug('dropEvent urls: %r' % urls)
-            self.controller.open(urls[0])
-        else:
-            event.ignore()
+            #TODO: method to append many and go
+            #self.controller.open(urls[0])
+            self.controller.playlist_extend_and_goto(urls)
 
 
 class GuiMovieWindow(QWidget):
@@ -185,9 +183,6 @@ class GuiThumbinalDialog(object):
             return None
 
     
-        
-
-
 #QWidget.contextMenuEvent (self, QContextMenuEvent)
 
 class GuiMain(QApplication):
@@ -242,7 +237,6 @@ class GuiMain(QApplication):
         self.central.layout().addWidget(self.controls)
         
         self.window.setAcceptDrops(True)
-        self.movie_window.setAcceptDrops(True)
         
         self.window.resize(self.window.minimumSizeHint().expandedTo(QSize(600, 400)))
         self.window.show() 
@@ -402,19 +396,4 @@ class GuiMain(QApplication):
         menu_bar.clear()
         add(menu_bar, data.submenu)
 
-
-    def createAction(self, text, slot=None, shortcut=None, icon=None, tip=None, checkable=False, signal="triggered()"):
-        action = QAction(text, self)
-        if icon is not None:
-            action.setIcon(QIcon(":/%s.png" % icon))
-        if shortcut is not None:
-            action.setShortcut(shortcut)
-        if tip is not None:
-            action.setToolTip(tip)
-            action.setStatusTip(tip)
-        if slot is not None:
-            self.connect(action, SIGNAL(signal), slot)
-        if checkable:
-            action.setCheckable(True)
-        return action
 
