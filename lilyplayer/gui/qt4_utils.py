@@ -152,6 +152,7 @@ class FileDialog:
 				self.selection = format[2]
 			else:
 				self.selection = format[1][0]
+			return True
 		else:
 			return False
 		

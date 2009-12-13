@@ -32,11 +32,7 @@ import lilyplayer.utils.utils as utils
 
 class Playlist(object):
     def __init__(self, items):
-        self.formats = {}
-        for i in dir(formats):
-            obj = getattr(formats, i)
-            if obj.__class__.__name__ == 'type' and formats.PlaylistFormat in obj.mro()[1:]:
-                self.formats[obj.extension] = obj
+        self.formats = formats.PlaylistFormat()
         
         self.current = None
         self.mode = 'default'
@@ -202,7 +198,5 @@ class Playlist(object):
             logging.warning('Format %r not supported' % format)
             return None
         
-        dump = obj.dumps(self.items)
-        utils.File(filename).write(dump)
-        
+        obj.dump(self.items, filename)
 

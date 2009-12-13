@@ -19,21 +19,61 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
-
+import lilyplayer.utils.utils as utils
 from lilyplayer.utils.play_time import Time
-from lilyplayer.playlist.item import PlaylistItem
+from lilyplayer.playlist.item import PlaylistItem, PlaylistError
 
 class PlaylistFormat(object):
-	pass
+    def __init__(self):
+        super(PlaylistFormat, self).__init__()
+        
+        if not hasattr(self, 'name'):
+            glob = globals()
+            self._formats = {}
+            self._extensions = {}
+            self._mimes = {}
+            for i in glob:
+                obj = glob[i]
+                if obj.__class__.__name__ == 'type' and PlaylistFormat in obj.mro()[1:]:
+                    self._formats[obj.name] = obj()
+                    for e in obj.extensions:
+                        self._extensions[e] = obj.name
+                    for m in obj.mimes:
+                        self._mimes[m] = obj.name
+                        
+            print self._formats, self._extensions, self._mimes
+
+    def __getitem__(self, key):
+        if key in self._formats:
+            return self._formats[key]
+        if key in self._extensions:
+            return self._formats[self._extensions[key]]
+        if key in self._mimes:
+            return self._formats[self._mimes[key]]
+        raise PlaylistError, 'Playlist format %r unknown' % key
+    
+    def __iter__(self):
+        return iter(self._formats)
+        
+        
+    def load(self, path):
+        data = utils.File(path).read()
+        return self.loads(data)
+        
+    def dump(self, data, path):
+        data = self.dumps(data)
+        utils.File(path).write(data)
+
 
 class M3uPlaylist(PlaylistFormat):
     """ 
     """
 
-    extension = 'm3u'
+    name = 'm3u'
+    extensions = ['m3u']
+    mimes = ['audio/x-mpegurl']
 
-    @staticmethod
-    def loads(data):
+    def loads(self, data):
         lines = [l.strip() for l in data.splitlines()]
         lines = [l for l in lines if len(l) > 0]
         extended = False
@@ -64,14 +104,13 @@ class M3uPlaylist(PlaylistFormat):
 
         return result
 
-    @staticmethod
-    def dumps(data):
+    def dumps(self, data):
         result = ['#EXTM3U']
         for i in data:
             if i.duration:
                 result.append('#EXTINF:%d,%s' % (i.duration.total_seconds(), i.name))
             else:
-                result.append('#EXTINF:%d,%s' % (0, i.name))
+                result.append('#EXTINF:%d,%s' % (-1, i.name))
             result.append(i.filename)
         return '\n'.join(result)
 
@@ -80,10 +119,11 @@ class PlsPlaylist(PlaylistFormat):
     """ 
     """
     
-    extension = 'pls'
+    name = 'pls'
+    extensions = ['pls']
+    mimes = ['audio/x-scpls']
     
-    @staticmethod
-    def loads(data):
+    def loads(self, data):
         def add(d, key):
             if not d.has_key(key):
                 d[key] = ['', '', Time()]
@@ -123,8 +163,7 @@ class PlsPlaylist(PlaylistFormat):
                 filename=a[0], name=a[1], duration=a[2]))
         return result
 
-    @staticmethod
-    def dumps(data):
+    def dumps(self, data):
         result = ['[playlist]', 'NumberOfEntries=%d' % len(data), '']
 
         for i, d in enumerate(data):
@@ -136,6 +175,4 @@ class PlsPlaylist(PlaylistFormat):
             result.append('')
         result.append('Version=2')
         return '\n'.join(result)
-
-
 
