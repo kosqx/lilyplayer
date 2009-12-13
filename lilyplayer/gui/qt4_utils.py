@@ -91,3 +91,69 @@ def create_action(this, text, slot=None, shortcut=None, icon=None, tip=None, che
 		action.setCheckable(True)
 	return action
 
+
+class FileDialog:
+	"""
+		Example:
+		formats = [
+			('ASDF file', ['asdf', 'asd']),
+			(None, ['jpeg', 'jpg']),
+			('Any', None),
+		]
+	"""
+	def __init__(self, parent, formats):
+		def build_filters(formats):
+			filters = []
+			for format in formats:
+				assert format[0] is not None or format[1] is not None
+				if format[0] is not None:
+					name = format[0]
+				else:
+					name = "%s file" % format[1][0].upper()
+				exts = ' '.join("*.%s" % i.lower() for i in format[1])
+				if exts:
+					exts  = " (" + exts + ")"
+				filters.append(name + exts)
+			return filters
+		
+		def build_exts(formats):
+			exts = []
+			for f in formats:
+				if f[1]:
+					exts.extend(f[1])
+			return exts
+		
+		self._parent  = parent
+		self._formats = formats
+		self._filters = build_filters(formats)
+		self._exts    = build_exts(formats)
+		
+	def setFilter(self, *a):
+		print unicode(a[0])
+		
+	def showSave(self, dir='.'):
+		dialog = QFileDialog(self._parent, u"Save file", dir or ".", ';;'.join(self._filters))
+		dialog.setFileMode(QFileDialog.AnyFile)
+		dialog.setAcceptMode(QFileDialog.AcceptSave)
+		#dialog.connect(dialog, SIGNAL("filterSelected(QString)"), self.setFilter)
+		if dialog.exec_():
+			self.filename = unicode(dialog.selectedFiles()[0])
+			filter = dialog.selectedFilter()
+			filter_index = self._filters.index(filter)
+			
+			format = self._formats[filter_index]
+			if not self.filename.endswith(tuple('.' + i for i in format[1])):
+				self.filename += '.' + format[1][0]
+				self.format = format[1][0]
+			else:
+				self.format = self.filename.rsplit('.', 1)[-1]
+			
+			if len(format) >= 3:
+				self.selection = format[2]
+			else:
+				self.selection = format[1][0]
+		else:
+			return False
+		
+	
+

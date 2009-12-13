@@ -102,7 +102,7 @@ class GuiMainWindow(QMainWindow):
             logging.debug('dropEvent urls: %r' % urls)
             #TODO: method to append many and go
             #self.controller.open(urls[0])
-            self.controller.playlist_extend_and_goto(urls)
+            self.controller.playlist_add_and_goto(urls)
 
 
 class GuiMovieWindow(QWidget):

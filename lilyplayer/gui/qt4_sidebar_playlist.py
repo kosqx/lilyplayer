@@ -28,7 +28,7 @@ from PyQt4.QtGui import *
 
 import lilyplayer.info.imdb_info as imdb_info
 
-from lilyplayer.gui.qt4_utils import create_action, partial
+from lilyplayer.gui.qt4_utils import create_action, partial, FileDialog
 
 class PlaylistModel(QAbstractTableModel):
 
@@ -96,6 +96,9 @@ class PlaylistModel(QAbstractTableModel):
     
     def columnCount(self, index=QModelIndex()):
         return 2
+    
+    def do_update(self):
+        self.emit(SIGNAL("layoutChanged()"))
 
 
 class PlaylistTableView(QTableView):
@@ -109,16 +112,12 @@ class PlaylistTableView(QTableView):
         if event.mimeData().hasUrls():
             event.setDropAction(Qt.CopyAction)
             event.acceptProposedAction()
-        #else:
-        #    event.ignore()
-            
+    
     def dragMoveEvent(self, event):
         if event.mimeData().hasUrls():
             event.setDropAction(Qt.CopyAction)
             event.accept()
-        #else:
-        #    event.ignore()
-
+    
     def dropEvent(self, event):
         print 'dropEvent'
         if event.mimeData().hasUrls():
@@ -134,9 +133,7 @@ class PlaylistTableView(QTableView):
                 row = None
             # TODO: append all
             logging.debug('sidebar dropEvent row: %r' % row)
-            self.controller.playlist_extend(urls, row)
-        #else:
-        #    event.ignore()
+            self.controller.playlist_add(urls, row)
 
 class TabPlaylist(QWidget):
     def __init__(self, parent, controller):
@@ -186,79 +183,28 @@ class TabPlaylist(QWidget):
         #self.table.setAutoUpdate(True)
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.connect(self.table, SIGNAL("doubleClicked(QModelIndex)"), self.on_double_clicked)
-        #self.connect(self.table, SIGNAL("clicked(QModelIndex)"), self.on_double_clicked)
-        #self.connect(self.table, SIGNAL('itemPressed(QListWidgetItem*)'), self.on_double_clicked)
-        
         
         layout.addWidget(self.table)
         
         #self.setAcceptDrops(True)
         self.controller.signal.connect('playlist', self.playlist_update)
-        
-    #def dragEnterEvent(self, event):
-    #    if event.mimeData().hasUrls():
-    #        event.acceptProposedAction()
-    #    else:
-    #        event.ignore()
-    #
-    #def dropEvent(self, event):
-    #    if event.mimeData().hasUrls():
-    #        urls = [unicode(i.path()) for i in event.mimeData().urls()]
-    #        event.acceptProposedAction()
-    #        event.setDropAction(Qt.CopyAction)
-    #        logging.debug('sidebar dropEvent urls: %r' % urls)
-    #        
-    #        index = self.table.indexAt(event.pos())
-    #        if index.isValid():
-    #            row = index.row()
-    #        else:
-    #            row = None
-    #        # TODO: append all
-    #        logging.debug('sidebar dropEvent row: %r' % row)
-    #        self.controller.playlist_extend(urls, row)
-    #    else:
-    #        event.ignore()
-        
+    
     def on_double_clicked(self, index):
         self.controller.playlist_goto(index.row())
         
     def playlist_update(self, *a):
-        self.table.setModel(None)
-        self.table.setModel(self.list_model)
-
-
+        #self.table.setModel(None)
+        #self.table.setModel(self.list_model)
+        self.list_model.do_update()
+    
     def on_playlist_load(self):
         pass
     
     def on_playlist_save(self):
-        def save_dialog(caption, dir, formats):
-            build_exts = lambda exts: ' '.join("*.%s" % i.lower() for i in exts)
-            filters = ["%s (%s)" % (i[0], build_exts(i[1])) for i in formats]
-                
-            dialog = QFileDialog(self, caption, dir or ".", ';;'.join(filters))
-            
-            if dialog.exec_():
-                filename = unicode(dialog.selectedFiles()[0])
-                
-                filter = dialog.selectedFilter()
-                filter_index = filters.index(filter)
-                
-                selected_format = formats[filter_index]
-                if not filename.endswith(tuple(['.' + i for i in selected_format[1]])):
-                    filename += '.' + selected_format[1][0]
-                    format = selected_format[1][0]
-                else:
-                    format = filename.rsplit('.', 1)[-1]
-                
-                #print filename, filter, filter_index
-                return filename, format
-            else:
-                return None, None
-        
         formats = self.controller.playlist.playlist_formats()
-        
-        filename, format = save_dialog("Save playlist", '.', formats)
-        self.controller.playlist.save(filename, format)
+        dialog = FileDialog(self, formats)
+        if dialog.showSave():
+            self.controller.playlist.save(dialog.filename, dialog.selection)
         
     def on_playlist_add_file(self):
         pass

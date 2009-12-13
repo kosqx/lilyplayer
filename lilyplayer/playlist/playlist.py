@@ -59,6 +59,51 @@ class Playlist(object):
             self.current -= 1
         del self.items[key]
 
+    def _scan_dir(self, dir, exts):
+        def dirwalk(dir, exts, out):
+            for f in sorted(os.listdir(dir)):
+                fullpath = os.path.join(dir,f)
+                if os.path.isdir(fullpath) and not os.path.islink(fullpath):
+                    dirwalk(fullpath, exts, out)
+                else:
+                    if os.path.splitext(fullpath)[1] in exts:
+                        out.append(fullpath)
+        
+        result = []
+        if isinstance(exts, list):
+            exts = frozenset(exts)
+        dirwalk(dir, exts, result)
+        return result
+    
+    def add(self, data, index=None):
+        media_exts = frozenset('.avi .mpg .mp4 .mkv .mp3'.split())
+        result = []
+        if not isinstance(data, list):
+            data = [data]
+        for path in data:
+            ext = os.path.splitext(path)[1]
+            if os.path.isfile(path) and ext in self.formats:
+                # TODO: create class and methos load
+                tmp = self.formats[format].loads(utils.File(path).read())
+                result.extend(tmp)
+            # TODO: formats
+            elif os.path.isfile(path) and ext in media_exts:
+                result.append(PlaylistItem(path))
+            elif os.path.isdir(path):
+                tmp = self._scan_dir(path, media_exts)
+                result.extend([PlaylistItem(i) for i in tmp])
+        print result, ext, media_exts
+        if index is None:
+            index = len(self.items)
+        self.items[index:index] = result
+        if index <= self.current:
+            self.current += len(result)
+        return index
+    
+    def add_and_goto(self, filenames, index=None):
+        self.current = self.add(filenames, index)
+        return self.get()
+    
     
     def get(self):
         if self.current is not None and 0 <= self.current < len(self.items):
@@ -108,7 +153,7 @@ class Playlist(object):
             else:
                 self.current += 1
         elif self.mode == 'shuffle':
-            self.current = random.randint(len(self.items))
+            self.current = random.randint(0, len(self.items) - 1)
         else:
             if self.current is None:
                 self.current = 0

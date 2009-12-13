@@ -65,7 +65,7 @@ class Signal(object):
         self.signals = {}
         
     def emit(self, name, *params):
-        logging.debug('Signals: %r' % self.signals)
+        #logging.debug('Signals: %r' % self.signals)
         parts = name.split('-')
         for i in xrange(len(parts), 0, -1):
             nm = '-'.join(parts[:i])
@@ -194,7 +194,7 @@ class Controller(object):
             filename = filename[7:]
         item = self.playlist.append_and_goto(filename)
         self.open_item(item)
-        self.signal.emit('playlist-append')
+        self.signal.emit('playlist-add')
     
     def open_item(self, item):
         if item:
@@ -341,26 +341,16 @@ class Controller(object):
         self.open_item(self.playlist.next())
         self.signal.emit('playlist-next')
         
-    def playlist_append(self, item, index=None):
-        self.playlist.append(item, index)
-        self.signal.emit('playlist-append')
+    def playlist_add(self, items, index=None):
+        self.playlist.add(items, index)
+        self.signal.emit('playlist-add')
         
-    def playlist_append_and_goto(self, item, index=None):
-        self.playlist.append_and_goto(item, index)
-        self.signal.emit('playlist-append')
+    def playlist_add_and_goto(self, items, index=None):
+        self.playlist.add_and_goto(items, index)
+        self.signal.emit('playlist-add')
         self.open_item(self.playlist.get())
         self.signal.emit('playlist-goto')
-        
-    def playlist_extend(self, items, index=None):
-        self.playlist.extend(items, index)
-        self.signal.emit('playlist-append')
-        
-    def playlist_extend_and_goto(self, items, index=None):
-        self.playlist.extend_and_goto(items, index)
-        self.signal.emit('playlist-append')
-        self.open_item(self.playlist.get())
-        self.signal.emit('playlist-goto')
-
+    
     def get_meta_data(self):
         structs = [
             ('Video', self.player.video),
@@ -393,8 +383,6 @@ class Controller(object):
             tmp.append(('MegaPixels', '%.2f' % (w * h / 1000000.0)))
         result.append(('Video', tmp))    
         
-            
-
         return result
 
     def thumbinals(self, cols, rows, size, margin):
@@ -414,12 +402,7 @@ class Controller(object):
             format, data = self.player.snapshot()
             label = str(self.player.position)
             result.append((data, label))
-
-            #filename = os.path.expanduser('~/thumb_%.4d.%s' % (i, format))
-            #fo = open(filename, 'wb')
-            #fo.write(data)
-            #fo.close()
-
+        
         compose_thumbs.compose(
                 result, 
                 outfile=os.path.join(os.path.expanduser('~'), 'thumb.png'),
