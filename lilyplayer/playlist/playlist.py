@@ -38,8 +38,7 @@ class Playlist(object):
         self.mode = 'default'
         
         self.items = []
-        for item in items:
-            self.append(item)
+        self.add(items)
     
     def __len__(self):
         return len(self.items)
@@ -54,7 +53,7 @@ class Playlist(object):
         if key > self.current:
             self.current -= 1
         del self.items[key]
-
+    
     def _scan_dir(self, dir, exts):
         def dirwalk(dir, exts, out):
             for f in sorted(os.listdir(dir)):
@@ -100,38 +99,11 @@ class Playlist(object):
         self.current = self.add(filenames, index)
         return self.get()
     
-    
     def get(self):
         if self.current is not None and 0 <= self.current < len(self.items):
             return self.items[self.current]
         else:
             return None
-
-    def append(self, filename, index=None):
-        item = PlaylistItem(filename)
-        if index is None:
-            index = len(self.items)
-        self.items.insert(index, item)
-        if index <= self.current:
-            self.current += 1
-        return index
-    
-    def append_and_goto(self, filename, index=None):
-        self.current = self.append(filename, index)
-        return self.get()
-    
-    def extend(self, filenames, index=None):
-        items = [PlaylistItem(filename) for filename in filenames]
-        if index is None:
-            index = len(self.items)
-        self.items[index:index] = items
-        if index <= self.current:
-            self.current += len(items)
-        return index
-        
-    def extend_and_goto(self, filenames, index=None):
-        self.current = self.extend(filenames, index)
-        return self.get()
     
     def goto(self, index):
         self.current = index
@@ -157,12 +129,13 @@ class Playlist(object):
                 self.current += 1
         return self.get()
         
-    def sort(self, method):
+    def sort(self, method, reverse=False):
         methods = {
             'random':   lambda i, o: random.random(),
             'filename': lambda i, o: o.filename,
             'name':     lambda i, o: o.name,
             'reverse':  lambda i, o: -i,
+            '':         lambda i, o: i,
         }
         if method not in methods:
             return
@@ -174,6 +147,8 @@ class Playlist(object):
             tmp.append((methods[method](index, object), index, object))
         
         tmp.sort()
+        if reverse:
+            tmp.reverse()
         
         self.items = []
         current = self.current

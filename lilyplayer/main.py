@@ -192,7 +192,7 @@ class Controller(object):
     def open(self, filename):
         if filename.startswith('file://'):
             filename = filename[7:]
-        item = self.playlist.append_and_goto(filename)
+        item = self.playlist.add_and_goto(filename)
         self.open_item(item)
         self.signal.emit('playlist-add')
     

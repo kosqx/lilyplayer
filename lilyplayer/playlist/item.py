@@ -35,7 +35,8 @@ class PlaylistItem(object):
         if name:
             self.name = name
         else:
-            self.name = os.path.split(filename)[-1]
+            self.name = os.path.splitext(os.path.split(filename)[-1])[0]
+            self.name = self.name.replace('.', ' ').replace('_', ' ').replace('  ', ' ')
         
         self.duration = duration
 

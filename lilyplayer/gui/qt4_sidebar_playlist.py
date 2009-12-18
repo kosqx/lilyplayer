@@ -19,6 +19,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
+
 import logging
 
 
@@ -27,8 +28,8 @@ from PyQt4.QtGui import *
 
 
 import lilyplayer.info.imdb_info as imdb_info
-
 from lilyplayer.gui.qt4_utils import create_action, partial, FileDialog
+
 
 class PlaylistModel(QAbstractTableModel):
 
@@ -38,33 +39,27 @@ class PlaylistModel(QAbstractTableModel):
         self.playlist = controller.playlist
         self.dirty = False
         self.columns = {
-            'name': 0,
-            'filename': 1,
+            0: 'name',
+            1: 'filename',
         }
-
-
+    
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self.playlist)):
             return QVariant()
         
         item = self.playlist[index.row()]
         
-        
         column = index.column()
-        
         if role == Qt.DisplayRole:
             if column == 0:
                 return QVariant(item.name)
             elif column == 1:
                 return QVariant(item.filename)
-            #elif column == TEU:
-                #return QVariant(QString("%L1").arg(ship.teu))
-                
         elif role == Qt.TextAlignmentRole:
-            #if column == TEU:
-                #return QVariant(int(Qt.AlignRight|Qt.AlignVCenter))
             return QVariant(int(Qt.AlignLeft|Qt.AlignVCenter))
-        
+        elif role == Qt.FontRole:
+            if self.playlist.current == index.row():
+                return QVariant(QFont("", 8, QFont.Bold))
         elif role == Qt.TextColorRole:
             return QVariant(QColor(Qt.black))
         elif role == Qt.BackgroundColorRole:
@@ -72,8 +67,7 @@ class PlaylistModel(QAbstractTableModel):
                 return QVariant(QColor(250, 230, 250))
             return QVariant(QColor(210, 230, 230))
         return QVariant()
-
-
+    
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.TextAlignmentRole:
             if orientation == Qt.Horizontal:
@@ -88,14 +82,17 @@ class PlaylistModel(QAbstractTableModel):
                 return QVariant("Filename")
            
         return QVariant(int(section + 1))
-
-
+    
     def rowCount(self, index=QModelIndex()):
-        #logging.debug('playlist length: %r' % len(self.playlist))
         return len(self.playlist)
     
     def columnCount(self, index=QModelIndex()):
         return 2
+    
+    def sort(self, n_col, order):
+        self.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.controller.playlist.sort(self.columns[n_col], order == Qt.DescendingOrder)
+        self.emit(SIGNAL("layoutChanged()"))
     
     def do_update(self):
         self.emit(SIGNAL("layoutChanged()"))
@@ -107,7 +104,7 @@ class PlaylistTableView(QTableView):
         self.controller = controller
         
         self.setAcceptDrops(True)
-        
+    
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.setDropAction(Qt.CopyAction)
@@ -131,9 +128,10 @@ class PlaylistTableView(QTableView):
                 row = index.row()
             else:
                 row = None
-            # TODO: append all
+            
             logging.debug('sidebar dropEvent row: %r' % row)
             self.controller.playlist_add(urls, row)
+
 
 class TabPlaylist(QWidget):
     def __init__(self, parent, controller):
@@ -175,12 +173,21 @@ class TabPlaylist(QWidget):
         
         self.list_model = PlaylistModel(controller)
         
-        #self.table = QTableView()
         self.table = PlaylistTableView(self, self.controller)
         self.table.setModel(self.list_model)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.setGridStyle(Qt.NoPen)
+        #self.table.setGridStyle(Qt.NoPen)
         #self.table.setAutoUpdate(True)
+        self.table.setShowGrid(False)
+        
+        self.table.setFont(QFont("", 8))
+        self.table.verticalHeader().setVisible(False)
+        self.table.horizontalHeader().setStretchLastSection(True)
+
+        #self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
+        self.table.setSortingEnabled(True)
+        
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.connect(self.table, SIGNAL("doubleClicked(QModelIndex)"), self.on_double_clicked)
         
@@ -191,7 +198,7 @@ class TabPlaylist(QWidget):
     
     def on_double_clicked(self, index):
         self.controller.playlist_goto(index.row())
-        
+    
     def playlist_update(self, *a):
         #self.table.setModel(None)
         #self.table.setModel(self.list_model)
@@ -205,7 +212,7 @@ class TabPlaylist(QWidget):
         dialog = FileDialog(self, formats)
         if dialog.showSave():
             self.controller.playlist.save(dialog.filename, dialog.selection)
-        
+    
     def on_playlist_add_file(self):
         pass
     
@@ -218,7 +225,7 @@ class TabPlaylist(QWidget):
     def on_playlist_sort(self, what):
         self.controller.playlist.sort(what)
         self.playlist_update()
-        
+    
     def on_playlist_mode(self, what):
         self.controller.playlist.mode = what
         #self.playlist_update()
