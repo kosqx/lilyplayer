@@ -21,15 +21,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 import re
 
-#try:
-    #from cStringIO import StringIO
-#except ImportError:
-    #from StringIO import StringIO
 
 from lilyplayer.utils.play_time import Time, TimeRange 
 from lilyplayer.utils.utils import int_or
 from verse import Verse
-
 
 
 class SubtitlesFormat(object):
@@ -100,10 +95,6 @@ class Mpl2Format(SubtitlesFormat):
         return '\n'.join(result)
 
 
-
-
-
-
 class MicroDvdFormat(SubtitlesFormat):
     """ Support for MicroDVD subtitle file format
 
@@ -148,9 +139,6 @@ class MicroDvdFormat(SubtitlesFormat):
         return '\n'.join(result)
 
 
-
-
-
 class TmPlayerFormat(SubtitlesFormat):
     """ Support for TM Player subtitle file format
 
@@ -193,15 +181,15 @@ class TmPlayerFormat(SubtitlesFormat):
         return '\n'.join(result)
 
 
-
-
-
 class SrtFormat(SubtitlesFormat):
     """ Support for SRT subtitle file format
 
     """
-
-    frame_based = False
+    
+    name       = 'srt'
+    label      = 'SubRip subtitles'
+    extensions = ['srt']
+    mimes      = ['application/x-subrip']
 
     @staticmethod
     def load(data, encoding=None):
@@ -250,3 +238,21 @@ class SrtFormat(SubtitlesFormat):
 
         return '\n'.join(result)
 
+
+#class SamiFormat(SubtitlesFormat):
+#    name       = 'sami'
+#    label      = 'Synchronized Accessible Media Interchange'
+#    extensions = ['smi', 'sami']
+#    mimes      = ['application/x-sami']
+#
+#    @staticmethod
+#    def load(data, encoding=None):
+#        """ Load subtitle """
+#
+#        result = []
+#        return result, False
+#
+#    @staticmethod
+#    def save(data, encoding=None):
+#        result = []
+#        return '\n'.join(result)

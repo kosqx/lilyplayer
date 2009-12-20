@@ -19,9 +19,11 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
+
 import lilyplayer.utils.utils as utils
 from lilyplayer.utils.play_time import Time
 from lilyplayer.playlist.item import PlaylistItem, PlaylistError
+
 
 class PlaylistFormat(object):
     def __init__(self):
@@ -66,12 +68,10 @@ class PlaylistFormat(object):
 
 
 class M3uPlaylist(PlaylistFormat):
-    """ 
-    """
-
-    name = 'm3u'
-    extensions = ['m3u']
-    mimes = ['audio/x-mpegurl']
+    name       = 'm3u'
+    label      = 'MP3 audio (streamed)'
+    extensions = ['m3u', 'vlc']
+    mimes      = ['audio/x-mpegurl']
 
     def loads(self, data):
         lines = [l.strip() for l in data.splitlines()]
@@ -116,12 +116,10 @@ class M3uPlaylist(PlaylistFormat):
 
 
 class PlsPlaylist(PlaylistFormat):
-    """ 
-    """
-    
-    name = 'pls'
+    name       = 'pls'
+    label      = 'MP3 ShoutCast playlist'
     extensions = ['pls']
-    mimes = ['audio/x-scpls']
+    mimes      = ['audio/x-scpls']
     
     def loads(self, data):
         def add(d, key):
@@ -175,4 +173,31 @@ class PlsPlaylist(PlaylistFormat):
             result.append('')
         result.append('Version=2')
         return '\n'.join(result)
+
+
+## Currently only format spec
+#
+#class XspfPlaylist(PlaylistFormat):
+#    name =       'xspf'
+#    label =      'XML Shareable Playlist Format'
+#    extensions = ['xspf']
+#    mimes =      ['application/xspf+xml']
+#    
+#class PlaPlaylist(PlaylistFormat):
+#    name =       'pla'
+#    label =      'iRiver Playlist'
+#    extensions = ['pla']
+#    mimes =      ['audio/x-iriver-pla']
+#    
+#class QtlPlaylist(PlaylistFormat):
+#    name       = 'qtl'
+#    label      = 'QuickTime metalink playlist'
+#    extensions = ['qtl']
+#    mimes      = ['application/x-quicktime-media-link']
+#    
+#class AsxPlaylist(PlaylistFormat):
+#    name       = 'asx'
+#    label      = 'Microsoft ASX playlist'
+#    extensions = ['asx', 'wax', 'wvx', 'wmx']
+#    mimes      = ['audio/x-ms-asx']
 
