@@ -65,6 +65,8 @@ class Mpl2Format(SubtitlesFormat):
 
         for line in lines:
             m = pattern.match(to_unicode(line, encoding))
+            #if m is None:
+            #    raise SubtitlesFormatError
             g = m.groupdict()
 
             start = Time.from_seconds(int(g['start']), 1)
@@ -106,12 +108,20 @@ class MicroDvdFormat(SubtitlesFormat):
     def load(data, encoding=None):
         """ Load subtitle """
         
-        pattern = re.compile(r"\{(?P<start>\d+)\}\{(?P<stop>\d*)\}(?P<text>.*)")
+        pattern = re.compile(r"\{(?P<start>\d*)\}\{(?P<stop>\d*)\}(?P<text>.*)")
         result = []
         lines = data.splitlines()
 
         for line in lines:
+            line =  line.strip()
+            if line == '' or  line.startswith('#'):
+                continue
             m = pattern.match(to_unicode(line, encoding))
+            
+            if m is None:
+                raise SubtitlesFormatError
+                #print 'invalid line %r', line
+                #continue
             d = m.groupdict()
             
             start = Time.from_seconds(int(d['start']))
@@ -158,6 +168,8 @@ class TmPlayerFormat(SubtitlesFormat):
 
         for line in lines:
             m = pattern.match(to_unicode(line, encoding))
+            #if m is None:
+            #    raise SubtitlesFormatError
             d = m.groupdict()
 
             h = int_or(d['h'], 0)
@@ -209,6 +221,8 @@ class SrtFormat(SubtitlesFormat):
             
             elif state == 1:
                 m = pattern.match(line)
+                #if m is None:
+                #    raise SubtitlesFormatError
                 d = m.groupdict()
                 start = Time.parse(d['start'])
                 stop = Time.parse(d['stop'])

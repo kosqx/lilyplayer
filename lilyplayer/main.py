@@ -208,8 +208,10 @@ class Controller(object):
             self.video_scale(1.0)
             if False:
                 try:
-                    subname = item.filename.rsplit('.', 1)[0] + '.txt'
+                    #subname = item.filename.rsplit('.', 1)[0] + '.txt'
+                    subname = '/home/kosqx/contact.srt'
                     self.subtitles.load(subname, encoding='cp1250')
+                    #print self.subtitles
                     self.subtitles.adjust_fps(self.player.video.framerate)
                     self.subtitles.adjust_time(perchar=Time(s=0.01), minimum=Time(s=2))
                 except Exception, e:
@@ -222,6 +224,15 @@ class Controller(object):
             self.gui.do_set_title("Lily Player")
             self.player_stop()
 
+
+    def set_subtitles(self, subtitles):
+        #subname = item.filename.rsplit('.', 1)[0] + '.txt'
+        #subname = '/home/kosqx/contact.srt'
+        #self.subtitles.load(subname, encoding='cp1250')
+        #print self.subtitles
+        self.subtitles = subtitles
+        self.subtitles.adjust_fps(self.player.video.framerate)
+        #self.subtitles.adjust_time(perchar=Time(s=0.01), minimum=Time(s=2))
 
     def update_title(self):
         item = self.playlist.get()
@@ -276,6 +287,8 @@ class Controller(object):
     
 
     def get_current_subtitle(self):
+        #return ''
+        #return '<i>%s</i><br/><b>%s</b>' % (self.player.position, self.player.duration)
         verses = self.subtitles.at(self.player.position)
         if verses:
             logging.debug('Current verses: %r' % verses)

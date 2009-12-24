@@ -26,6 +26,7 @@ try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
+import logging
 
 
 from lilyplayer.utils.play_time import Time, TimeRange
@@ -116,6 +117,7 @@ class Subtitles(object):
         return self._formats[self._formats_names[name]]
 
     def load_string(self, data, format='', encoding='utf-8'):
+        print 'subtitles.load_string'
         def do_load(format, encoding):
             format_class = self._format_class(format)
             tmp, self._frame_based = format_class.load(data, encoding)
@@ -124,11 +126,14 @@ class Subtitles(object):
         if not format:
             for format in self._formats:
                 format_class = self._formats[format]
+                print 'subtitles.load_string try: %r' % format
                 try:
                     do_load(format, encoding)
-                    #logging.info("Opened subtitles file in format %r" % format)
+                    logging.info("Opened subtitles file in format %r" % format)
                     return self
                 except Exception, e:
+                    #print '    fail', e
+                    logging.exception('fail')
                     pass
         else:
             do_load(format, encoding)

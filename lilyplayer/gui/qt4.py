@@ -45,6 +45,9 @@ class GuiMainWindow(QMainWindow):
         QMainWindow.__init__(self)
         self.setMouseTracking(True)
         self.controller = controller
+        
+        #self.setStyleSheet('background-color:#222222')
+        #self.setStyleSheet('color:#ffffff')
     
     def keyPressEvent(self, event):
         keys = key_event_to_str(event)
@@ -116,6 +119,7 @@ class GuiMovieWindow(QWidget):
         self.setMouseTracking(True)
         self.setAutoFillBackground(True)
         
+        #self.setStyleSheet('background-color:black')
         
         palette = self.palette()
         palette.setColor(QPalette.Active, QPalette.Window, QColor(0, 0, 0))
@@ -221,9 +225,10 @@ class GuiMain(QApplication):
         
         self.markup_window = GuiMarkupWindow(self.movie_window)
         self.markup_window.set_style({'font-size': 32, 'border-width': 1})
-        #self.markup_window.render('Ala ma kota<br/>i psa', {'font-size': '32'})
-        #self.markup_window.setParent(self.movie_window, Qt.Tool)
+        self.markup_window.render('Ala ma kota<br/>i psa', {'font-size': '32'})
+        self.markup_window.setParent(self.movie_window, Qt.Tool)
         self.markup_window.show()
+        logging.debug('markup_window.show()')
         
         self.sidebar = GuiSidebar(self.window, controller)
         

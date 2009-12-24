@@ -29,7 +29,8 @@ from PyQt4.QtGui import *
 import lilyplayer.info.imdb_info as imdb_info
 
 from lilyplayer.gui.qt4_utils import create_action, partial
-from lilyplayer.gui.qt4_sidebar_playlist import TabPlaylist
+from lilyplayer.gui.qt4_sidebar_playlist  import TabPlaylist
+from lilyplayer.gui.qt4_sidebar_subtitles import TabSubtitles
 
 
 
@@ -192,14 +193,6 @@ class TabInfo(QWidget):
             self.browser.setHtml(html)
         else:
             self.browser.setHtml('<b>Not Found</b>')
-
-
-   
-
-class TabSubtitles(QWidget):
-    def __init__(self, parent, controller):
-        super(TabSubtitles, self).__init__(parent)
-        self.controller = controller
 
 
 class TabSettings(QWidget):

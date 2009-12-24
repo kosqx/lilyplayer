@@ -190,6 +190,9 @@ def levenshtein_distance(a,b):
             current[j] = min(add, delete, change)
             
     return current[n]
+    
+def levenshtein_similarity(a,b):
+    return levenshtein_distance(a,b) / float(max(len(a), len(b)))
 
 def reduce_fraction(a,b):
     d = 2

@@ -82,7 +82,9 @@ class Playlist(object):
                 tmp = self.formats[format].loads(utils.File(path).read())
                 result.extend(tmp)
             # TODO: formats
-            elif os.path.isfile(path) and ext in media_exts:
+            #elif os.path.isfile(path) and ext in media_exts:
+            #    result.append(PlaylistItem(path))
+            elif os.path.isfile(path):
                 result.append(PlaylistItem(path))
             elif os.path.isdir(path):
                 tmp = self._scan_dir(path, media_exts)

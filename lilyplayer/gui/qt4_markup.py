@@ -198,7 +198,7 @@ class GuiMarkupWindow(QDialog):
         
         painter.end()
 
-        self.label.clear()
+        #self.label.clear()
         self.resize(pixmap.size())
         self.label.resize(pixmap.size())
         self.setMask(pixmap.mask())
