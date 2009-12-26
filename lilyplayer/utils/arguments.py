@@ -39,9 +39,11 @@ class PrefixArg(object):
                 return val, [arg[len(prefix):]] + args[1:]
         raise 'no prefix'
 
+
 class SimpleArg(object):
     def process(self, args):
         return self.parse(args[0]), args[1:]
+
 
 class FloatArg(SimpleArg):
     def __init__(self, min_=None, max_=None):
@@ -60,7 +62,8 @@ class FloatArg(SimpleArg):
         if self.max_ is not None and value > self.max_:
             raise 'too big'
         return value
-        
+
+
 class IntArg(SimpleArg):
     def __init__(self, min_=None, max_=None):
         self.min_ = min_
@@ -85,7 +88,7 @@ class TimeArg(SimpleArg):
             return Time.parse(text)
         except ValueError:
             raise "Not match %r regular expresion"
-        
+
 
 class StrArg(SimpleArg):
     def __init__(self, regexp=None):
@@ -98,6 +101,7 @@ class StrArg(SimpleArg):
             return text
         else:
             raise "Not match %r regular expresion"
+
 
 class EnumArg(SimpleArg):
     def __init__(self, values):
@@ -112,40 +116,71 @@ class EnumArg(SimpleArg):
         else: 
             raise "Not match %r regular expresion"
 
-#####################################################################
-# Arguments parser
 
-def parse_arguments(arguments_table, text):
-    args = text.split()
-    for speclst in arguments_table:
-        
-        if speclst[1] == args[0]:
-            try:
-                result = [speclst[0]]
-                argslst = args[1:]
-                for spec in speclst[2:]:
-                    val, argslst = spec.process(argslst)
-                    result.append(val)
+#####################################################################
+# Arguments support
+
+
+class CmdNotFound(Exception):
+    pass
+
+
+class Cmd:
+    def __init__(self):
+        self._methods = {}
+
+    def __call__(self, *args):
+        def inner(m):
+            if len(args) == 0 or not isinstance(args[0], basestring):
+                name = m.func_name.split('__')[0].replace('_', '-')
+                arg = args
+            else:
+                name = args[0]
+                arg = args[1:]
                 
-                return result
+            self._methods[name] = self._methods.get(name, [])
+            self._methods[name].append((m, arg))  
+        return inner
+    
+    def __contains__(self, key):
+        return key in self._methods
+    
+    def __getitem__(self, key):
+        return self._methods[key]
+    
+    def parse(self, text):
+        params = text.split()
+        if params[0] not in self._methods:
+            raise CmdNotFound
+        
+        for method, args in self._methods[params[0]]:
+            try:
+                parsed_args = []
+                params_tmp = params[1:]
+                for arg in args:
+                    val, params_tmp = arg.process(params_tmp)
+                    parsed_args.append(val)
+                if params_tmp:
+                    raise TypeError, 'not all params processed'
+                return method, parsed_args
             except:
                 pass
-    
-    raise 'Unknown arguments'
-
-#####################################################################
-# Arguments decorator
-
-def args(*arglist):
-    def wrapper_outer(func):
-        def wrapper_inner(*args, **kwds):
-            return func(*args, **kwds)
         
-        arg_table = arglist[0]
-        arg_table.append([wrapper_inner] + list(arglist[1:]))
-        
-        return wrapper_inner
-    return wrapper_outer
+        raise CmdNotFound
+
+
+def prefix_value_change(prop, prefix, value):
+    if prefix == '+':
+        return prop + value
+    elif prefix == '-':
+        return prop - value
+    elif prefix == '*':
+        return prop * value
+    elif prefix == '/':
+        return prop / value
+    else:
+        return value
+
 
 
 if __name__ == '__main__':

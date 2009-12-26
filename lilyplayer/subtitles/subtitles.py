@@ -117,7 +117,7 @@ class Subtitles(object):
         return self._formats[self._formats_names[name]]
 
     def load_string(self, data, format='', encoding='utf-8'):
-        print 'subtitles.load_string'
+        logging.debug('subtitles.load_string')
         def do_load(format, encoding):
             format_class = self._format_class(format)
             tmp, self._frame_based = format_class.load(data, encoding)

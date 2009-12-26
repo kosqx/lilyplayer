@@ -21,10 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
 import sys
-import os
 import os.path
-import time
-import random
 import platform
 import logging
 
@@ -33,31 +30,21 @@ from lilyplayer.gui.qt4 import GuiMain
 from lilyplayer.gui.qt4_utils import MenuItem
 from lilyplayer.utils.play_time import Time
 from lilyplayer.player.player import Player
-from lilyplayer.utils.arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
+#from lilyplayer.utils.arguments import PrefixArg, FloatArg, IntArg, TimeArg, StrArg, EnumArg, parse_arguments, args
 from lilyplayer.playlist.playlist import Playlist
 #from lilyplayer.playlist.playlist import PlaylistEntry
 from lilyplayer.subtitles.subtitles import Subtitles
+from lilyplayer.commands import Commands
+
 
 import lilyplayer.utils.compose_thumbs as compose_thumbs
 import lilyplayer.settings as settings
 import lilyplayer.utils.utils as utils
 
+
 __version__ = (0, 3, 1)
 __author__ = 'Krzysztof Kosyl'
 _copyright__ = 'GNU General Public License'
-
-
-def prefix_value_change(prop, prefix, value):
-    if prefix == '+':
-        return prop + value
-    elif prefix == '-':
-        return prop - value
-    elif prefix == '*':
-        return prop * value
-    elif prefix == '/':
-        return prop / value
-    else:
-        return value
 
 
 class Signal(object):
@@ -84,8 +71,6 @@ class Signal(object):
 
 
 class Controller(object):
-    arguments_table = []
-    
     main_menu = MenuItem('', submenu=[
         MenuItem('File', submenu=[
             MenuItem('Open', cmd='opendlg'),
@@ -143,12 +128,15 @@ class Controller(object):
     ])
 
     def __init__(self):
+        super(Controller, self).__init__()
         self.playlist = Playlist(sys.argv[1:])
         self.subtitles = Subtitles()
         self.signal = Signal()
         self.gui = GuiMain(self)
         self.gui.update_menu(self.main_menu)
         self.player = Player.create('gstreamer', self.gui, self.gui.movie_window.winId())
+        self.commands = Commands(self)
+        
         settings.get_path('data', 'mainicon.png')
         self.view = {}
     
@@ -156,11 +144,8 @@ class Controller(object):
         self.gui.exec_()
     
     def dispatch(self, args):
-        if args is not None:
-            parsed = parse_arguments(self.arguments_table, args)
-            parsed[0](*([self] + parsed[1:]))
-
-
+        self.commands.dispatch(args)
+    
     def keyboard_shortcut(self, keys):
         shortcuts = settings.get('shortcut')
         if keys in shortcuts:
@@ -448,127 +433,6 @@ class Controller(object):
             self.gui.do_resize_video_window(w, h)
         else:
             logging.warn("Try 'video_scale' - video size unknown")
-            
-    @args(arguments_table, 'theme', StrArg())
-    def cmd_theme(self, name):
-        settings.set('gui.theme', name)
-        self.signal.emit('theme')
-            
-    @args(arguments_table, 'video-scale-dlg')
-    def cmd_video_scale_dlg(self):
-        result = self.gui.do_input_dlg('Video scale', 'Enter scale')
-        self.dispatch('video-scale ' + result)
-    
-    @args(arguments_table, 'video-scale', FloatArg(0.2, 5.0))
-    def cmd_video_scale(self, scale):
-        self.video_scale(scale)
-    
-    @args(arguments_table, 'thumbdlg')
-    def cmd_thumb_dlg(self):
-        self.thumbinals_dialog()
-    
-    @args(arguments_table, 'exit')
-    def cmd_exit(self):
-        self.exit()
-    
-    @args(arguments_table, 'about')
-    def cmd_about(self):
-        self.about()
-    
-    @args(arguments_table, 'cmddlg')
-    def cmd_cmddlg(self):
-        cmd = self.gui.do_input_dlg('Run command', 'Enter command')
-        self.dispatch(cmd)
-    
-    @args(arguments_table, 'gotodlg')
-    def cmd_gotodlg(self):
-        self.goto_dlg()
-    
-    @args(arguments_table, 'open', StrArg())
-    def cmd_open(self, url):
-        self.open(url)
-    
-    @args(arguments_table, 'opendlg')
-    def cmd_opendlg(self):
-        self.open_dlg()
-    
-    @args(arguments_table, 'close')
-    def cmd_close(self):
-        self.player.close()
-    
-    @args(arguments_table, 'speed', PrefixArg(['+', '-', '=', '']), FloatArg(0.25, 4.0))
-    def cmd_speed(self, prefix, value):
-        self.player.speed = prefix_value_change(self.player.speed, prefix, value)
-    
-    @args(arguments_table, 'goto', PrefixArg(['+', '-', '=', '']), FloatArg(0.0, 1.0))
-    def cmd_goto_pos(self, prefix, value):
-        self.player.position_fraction = prefix_value_change(self.player.position_fraction, prefix, value)
-    
-    @args(arguments_table, 'goto', PrefixArg(['+', '-', '=', '']), TimeArg())
-    def cmd_goto_time(self, prefix, value):
-        self.player.position = prefix_value_change(self.player.position, prefix, value)
-    
-    @args(arguments_table, 'volume', PrefixArg(['+', '-', '=', '']), FloatArg(0.0, 1.0))
-    def cmd_volume(self, prefix, value):
-        self.player.volume = prefix_value_change(self.player.volume, prefix, value)
-    
-    @args(arguments_table, 'mute')
-    def cmd_mute(self):
-        self.player.mute = None
-    
-    @args(arguments_table, 'snap')
-    def cmd_snap(self):
-        format, data = self.player.snapshot()
-        filename = os.path.expanduser('~/lily_%s.%s' % (time.strftime('%Y-%m-%d_%H:%M:%S'), format))
-        fo = open(filename, 'wb')
-        fo.write(data)
-        fo.close()
-    
-    @args(arguments_table, 'thumb', IntArg(1, 10), IntArg(1, 100))
-    def cmd_thumb(self, rows, cols):
-        self.thumbinals(rows, cols, 200, 10)
-    
-    @args(arguments_table, 'play')
-    def cmd_play(self):
-        self.player_play()
-    
-    @args(arguments_table, 'pause')
-    def cmd_pause(self):
-        self.player_pause()
-    
-    @args(arguments_table, 'stop')
-    def cmd_stop(self):
-        self.player_stop()
-    
-    @args(arguments_table, 'toggle')
-    def cmd_toggle(self):
-        self.player_toggle()
-    
-    @args(arguments_table, 'fullscreen', EnumArg({'on': True, 'off': False}))
-    def cmd_fullscreen_enum(self, enum):
-        self.set_fullscreen(enum)
-    
-    @args(arguments_table, 'fullscreen')
-    def cmd_fullscreen(self):
-        self.set_fullscreen(None)
-    
-    @args(arguments_table, 'playlist-next')
-    def cmd_playlist_next(self):
-        self.open_item(self.playlist.next())
-    
-    @args(arguments_table, 'playlist-mode', EnumArg(['repeat-one', 'repeat', 'shuffle', 'default']))
-    def cmd_playlist_mode(self, mode):
-        """ Changes playlist mode to specified """
-        self.playlist.mode = mode
-    
-    @args(arguments_table, 'playlist-goto', IntArg(0))
-    def cmd_playlist_goto(self, index):
-        """ Changes playlist current item do specified """
-        self.playlist_goto(index)
-        
-    @args(arguments_table, 'view-sidebar', EnumArg({'on': True, 'off': False, 'toggle': None}))
-    def cmd_view_sidebar(self, enum):
-        self.view_sidebar(enum)
 
 
 def main():
