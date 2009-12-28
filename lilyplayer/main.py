@@ -36,7 +36,6 @@ from lilyplayer.playlist.playlist import Playlist
 from lilyplayer.subtitles.subtitles import Subtitles
 from lilyplayer.commands import Commands
 
-
 import lilyplayer.utils.compose_thumbs as compose_thumbs
 import lilyplayer.settings as settings
 import lilyplayer.utils.utils as utils
@@ -435,6 +434,20 @@ class Controller(object):
             logging.warn("Try 'video_scale' - video size unknown")
 
 
+try:
+    def setproctitle(title):
+        import ctypes
+        libc = ctypes.CDLL('libc.so.6')
+        libc.prctl(15, title, 0, 0, 0)
+        # BSD
+        # import ctypes
+        # libc = ctypes.CDLL('libc.so')
+        # libc.setproctitle('wine-doors')
+except (ImportError, OSError, AttributeError):
+    def setproctitle(title):
+        pass
+
+
 def main():
     logging.basicConfig(
         level=logging.DEBUG, #logging.INFO,
@@ -442,6 +455,8 @@ def main():
         datefmt='%Y-%m-%d %H:%M:%S',
     )
     logging.info('LilyPlayer v%s starting' % '.'.join(str(i) for i in __version__))
+    
+    setproctitle(os.path.basename(sys.argv[0]))
     
     controller = Controller()
     controller.exec_()
