@@ -102,7 +102,7 @@ class NapiSource(SubtitleSource):
 		
 		try:
 			data = urllib.urlopen(query).read()
-			return [('np', 'PL', os.path.basename(filename), data)]
+			return [('np', 'pl', os.path.basename(filename), data)]
 		except IOError:
 			return []
 			

@@ -46,6 +46,10 @@ __author__ = 'Krzysztof Kosyl'
 _copyright__ = 'GNU General Public License'
 
 
+import __builtin__
+__builtin__.__dict__['_'] = lambda a: a
+
+
 class Signal(object):
     def __init__(self):
         self.signals = {}

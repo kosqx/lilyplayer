@@ -28,6 +28,7 @@ from PyQt4.QtGui import *
 
 
 import lilyplayer.subtitle_source as subtitle_source
+import lilyplayer.settings as settings
 
 
 class SubtitlesModel(QAbstractTableModel):
@@ -37,6 +38,20 @@ class SubtitlesModel(QAbstractTableModel):
         self.controller = controller
         
         self.sources = []
+        self.icons = {}
+    
+    def _get_icon(self, dir, name):
+        if (dir, name) in self.icons:
+            return self.icons[(dir, name)]
+        else:
+            path =  settings.get_path('icons', dir, name + '.png')
+            pixmap = QPixmap(path)
+            if pixmap.isNull():
+                result = QVariant()
+            else:
+                result = QVariant(pixmap)
+            self.icons[(dir, name)] = result
+            return result
     
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
@@ -44,7 +59,10 @@ class SubtitlesModel(QAbstractTableModel):
         
         row = index.row()
         column = index.column()
-        
+        if role == Qt.DecorationRole and column == 0:
+            return self._get_icon('subsrc', self.sources[row][0])
+        if role == Qt.DecorationRole and column == 1:
+            return self._get_icon('languages', self.sources[row][1])
         if role == Qt.DisplayRole and row < len(self.sources) and column < 3:
             return QVariant(QString(self.sources[row][column] or ""))
         return QVariant()
@@ -90,6 +108,8 @@ class TabSubtitles(QWidget):
         self.table.setModel(self.list_model)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setShowGrid(False)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.resizeColumnsToContents()
         
         layout.addWidget(self.table)
         
